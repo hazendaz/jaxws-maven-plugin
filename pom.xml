@@ -34,7 +34,7 @@
     <packaging>maven-plugin</packaging>
     <name>Maven JAXWS 2.x Plugin</name>
     <description>Maven plugin for JAX-WS RI.  Fork of http://jax-ws-commons.java.net/jaxws-maven-plugin/</description>
-    <version>2.3.1</version>
+    <version>2.3.2-SNAPSHOT</version>
     <url>http://jax-ws-commons.java.net/jaxws-maven-plugin/</url>
 
     <developers>
@@ -240,7 +240,7 @@
 	<scm>
 		<connection>scm:git:https://github.com/trajano/${project.artifactId}</connection>
 		<developerConnection>scm:git:ssh://git@github.com/trajano/${project.artifactId}.git</developerConnection>
-		<tag>jaxws-maven-plugin-2.3.1</tag>
+		<tag>HEAD</tag>
 	</scm>
 
     <distributionManagement>
