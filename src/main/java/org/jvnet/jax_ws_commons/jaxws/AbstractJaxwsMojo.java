@@ -186,7 +186,10 @@ abstract class AbstractJaxwsMojo extends AbstractMojo {
     @Parameter(defaultValue = "${plugin}", readonly = true)
     protected PluginDescriptor pluginDescriptor;
 
-    private static final Logger logger = Logger.getLogger(AbstractJaxwsMojo.class.getName());
+    /**
+     * Logger.
+     */
+    private static final Logger LOG = Logger.getLogger(AbstractJaxwsMojo.class.getName());
     private static final List<String> METRO_22 = new ArrayList<String>();
     private static final List<String> METRO_221 = new ArrayList<String>();
     private static final List<String> METRO_23 = new ArrayList<String>();
@@ -476,13 +479,13 @@ abstract class AbstractJaxwsMojo extends AbstractMojo {
             fos = new FileOutputStream(f);
             p.store(fos, null);
         } catch (IOException ex) {
-            logger.log(Level.SEVERE, null, ex);
+            LOG.log(Level.SEVERE, null, ex);
         } finally {
             if (fos != null) {
                 try {
                     fos.close();
                 } catch (IOException ex) {
-                    logger.log(Level.SEVERE, null, ex);
+                    LOG.log(Level.SEVERE, null, ex);
                 }
             }
         }
