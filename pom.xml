@@ -24,17 +24,16 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>org.jvnet.jax-ws-commons</groupId>
-        <artifactId>pom</artifactId>
-        <version>1.4</version>
-        <relativePath>../pom/pom.xml</relativePath>
+        <groupId>net.trajano</groupId>
+        <artifactId>trajano</artifactId>
+        <version>5</version>
     </parent>
 
-    <groupId>org.jvnet.jax-ws-commons</groupId>
+    <groupId>net.trajano.mojo</groupId>
     <artifactId>jaxws-maven-plugin</artifactId>
     <packaging>maven-plugin</packaging>
     <name>Maven JAXWS 2.x Plugin</name>
-    <description>Maven plugin for JAX-WS RI</description>
+    <description>Maven plugin for JAX-WS RI.  Fork of http://jax-ws-commons.java.net/jaxws-maven-plugin/</description>
     <version>2.3.1-SNAPSHOT</version>
     <url>http://jax-ws-commons.java.net/jaxws-maven-plugin/</url>
 
@@ -86,6 +85,22 @@
             <roles>
                 <role>Previous maintainer</role>
                 <role>Original author</role>
+            </roles>
+        </developer>
+        <developer>
+            <id>kohsuke</id>
+            <name>Kohsuke Kawaguchi</name>
+            <email>kohsuke.kawaguchi@sun.com</email>
+            <roles>
+                <role>Maintainer</role>
+            </roles>
+        </developer>
+        <developer>
+            <id>atrajano</id>
+            <name>Archimedes Trajano</name>
+            <email>developer@trajano.net</email>
+            <roles>
+                <role>Contributor</role>
             </roles>
         </developer>
     </developers>
@@ -222,11 +237,11 @@
         </dependency>
     </dependencies>
 
-    <scm>
-        <connection>scm:svn:https://svn.java.net/svn/jax-ws-commons~svn/trunk/jaxws-maven-plugin</connection>
-        <developerConnection>scm:svn:https://svn.java.net/svn/jax-ws-commons~svn/trunk/jaxws-maven-plugin</developerConnection>
-        <url>http://java.net/projects/jax-ws-commons/sources/svn/show/trunk/jaxws-maven-plugin</url>
-    </scm>
+	<scm>
+		<connection>scm:git:https://github.com/trajano/${project.artifactId}</connection>
+		<developerConnection>scm:git:ssh://git@github.com/trajano/${project.artifactId}.git</developerConnection>
+		<tag>HEAD</tag>
+	</scm>
 
     <distributionManagement>
         <site>
