@@ -177,8 +177,11 @@ abstract class AbstractWsGenMojo extends AbstractJaxwsMojo {
         return buf.toString();
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
-    protected boolean getXnocompile() {
+    protected boolean isXnocompile() {
         return xnocompile;
     }
 
