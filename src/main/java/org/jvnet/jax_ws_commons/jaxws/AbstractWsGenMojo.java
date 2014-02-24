@@ -130,7 +130,9 @@ abstract class AbstractWsGenMojo extends AbstractJaxwsMojo {
 
     protected abstract File getClassesDir();
 
-    @Override
+    /**
+     * {@inheritDoc}
+     */
     public void execute() throws MojoExecutionException, MojoFailureException {
         Set<String> seis = new HashSet<String>();
         if (sei != null) {

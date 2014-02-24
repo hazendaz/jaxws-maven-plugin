@@ -40,7 +40,9 @@ public class RepositoryITCase {
         File projects = new File(System.getProperty("it.projects.dir"));
         File wsDir = new File(new File(projects.getParentFile(), "it-repo"), "com/sun/xml/ws");
         FilenameFilter ff = new FilenameFilter() {
-            @Override
+            /**
+             * {@inheritDoc}
+             */
             public boolean accept(File dir, String name) {
                 return new File(dir, name).isDirectory();
             }

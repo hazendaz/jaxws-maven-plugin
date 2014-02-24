@@ -36,7 +36,9 @@ final class ExclusionFilter implements DependencyFilter {
         this.toExclude = toExclude;
     }
 
-    @Override
+    /**
+     * {@inheritDoc}
+     */
     public boolean accept(DependencyNode node, List<DependencyNode> parents) {
         Artifact a = node.getDependency().getArtifact();
         for (Exclusion e : toExclude) {

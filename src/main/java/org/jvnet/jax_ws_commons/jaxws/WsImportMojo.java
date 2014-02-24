@@ -272,7 +272,9 @@ abstract class WsImportMojo extends AbstractJaxwsMojo
 
     protected abstract File getImplDestDir();
 
-    @Override
+    /**
+     * {@inheritDoc}
+     */
     public void execute() throws MojoExecutionException {
         try {
             URL[] wsdls = getWSDLFiles();
@@ -634,7 +636,6 @@ abstract class WsImportMojo extends AbstractJaxwsMojo
          * @param file The filed being reviewed by the filter.
          * @return true if an xml file.
          */
-        @Override
         public boolean accept(final java.io.File file) {
             return file.getName().endsWith(".xml");
         }
@@ -651,7 +652,6 @@ abstract class WsImportMojo extends AbstractJaxwsMojo
          * @param file The filed being reviewed by the filter.
          * @return true if an wsdl file.
          */
-        @Override
         public boolean accept(final java.io.File file) {
             return file.getName().endsWith(".wsdl");
         }
