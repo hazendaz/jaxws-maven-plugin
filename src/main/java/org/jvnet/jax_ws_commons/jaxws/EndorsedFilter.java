@@ -28,7 +28,9 @@ import org.sonatype.aether.graph.DependencyNode;
  */
 public class EndorsedFilter implements DependencyFilter {
 
-    @Override
+    /**
+     * {@inheritDoc}
+     */
     public boolean accept(DependencyNode dn, List<DependencyNode> list) {
         Artifact a = dn.getDependency().getArtifact();
         if ("jaxws-api".equals(a.getArtifactId())

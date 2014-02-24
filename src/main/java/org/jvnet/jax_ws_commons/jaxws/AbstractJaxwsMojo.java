@@ -542,7 +542,9 @@ abstract class AbstractJaxwsMojo extends AbstractMojo {
             }
         }
 
-        @Override
+        /**
+         * {@inheritDoc}
+         */
         public boolean accept(DependencyNode node, List<DependencyNode> parents) {
             org.sonatype.aether.artifact.Artifact a = node.getDependency().getArtifact();
             return !toExclude.contains(new Dep(a.getGroupId(), a.getArtifactId()));
