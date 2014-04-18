@@ -167,7 +167,6 @@ abstract class AbstractWsGenMojo extends AbstractJaxwsMojo {
     }
 
     @Override
-    @SuppressWarnings("unchecked")
     protected String getExtraClasspath() {
         StringBuilder buf = new StringBuilder();
         buf.append(getClassesDir().getAbsolutePath());
