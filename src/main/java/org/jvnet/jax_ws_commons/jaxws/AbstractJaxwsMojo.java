@@ -50,6 +50,7 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.artifact.versioning.ArtifactVersion;
 import org.apache.maven.artifact.versioning.OverConstrainedVersionException;
@@ -67,16 +68,16 @@ import org.codehaus.plexus.util.cli.CommandLineUtils;
 import org.codehaus.plexus.util.cli.Commandline;
 import org.codehaus.plexus.util.cli.DefaultConsumer;
 import org.codehaus.plexus.util.cli.StreamConsumer;
-import org.sonatype.aether.RepositorySystem;
-import org.sonatype.aether.RepositorySystemSession;
-import org.sonatype.aether.graph.DependencyFilter;
-import org.sonatype.aether.graph.DependencyNode;
-import org.sonatype.aether.repository.RemoteRepository;
-import org.sonatype.aether.resolution.DependencyResolutionException;
-import org.sonatype.aether.resolution.DependencyResult;
-import org.sonatype.aether.util.filter.NotDependencyFilter;
-import org.sonatype.aether.util.graph.FilteringDependencyVisitor;
-import org.sonatype.aether.util.graph.PreorderNodeListGenerator;
+import org.eclipse.aether.RepositorySystem;
+import org.eclipse.aether.RepositorySystemSession;
+import org.eclipse.aether.graph.DependencyFilter;
+import org.eclipse.aether.graph.DependencyNode;
+import org.eclipse.aether.repository.RemoteRepository;
+import org.eclipse.aether.resolution.DependencyResolutionException;
+import org.eclipse.aether.resolution.DependencyResult;
+import org.eclipse.aether.util.filter.NotDependencyFilter;
+import org.eclipse.aether.util.graph.visitor.FilteringDependencyVisitor;
+import org.eclipse.aether.util.graph.visitor.PreorderNodeListGenerator;
 
 /**
  *
@@ -416,8 +417,8 @@ abstract class AbstractJaxwsMojo extends AbstractMojo {
     }
 
     private String[] getCP() throws DependencyResolutionException {
-        Set<org.sonatype.aether.artifact.Artifact> endorsedCp = new HashSet<org.sonatype.aether.artifact.Artifact>();
-        Map<String, org.sonatype.aether.artifact.Artifact> cp = new HashMap<String, org.sonatype.aether.artifact.Artifact>();
+        Set<org.eclipse.aether.artifact.Artifact> endorsedCp = new HashSet<org.eclipse.aether.artifact.Artifact>();
+        Map<String, org.eclipse.aether.artifact.Artifact> cp = new HashMap<String, org.eclipse.aether.artifact.Artifact>();
         Plugin p = pluginDescriptor.getPlugin();
         boolean toolsFound = false;
         for (Dependency d : p.getDependencies()) {
@@ -498,21 +499,21 @@ abstract class AbstractJaxwsMojo extends AbstractMojo {
         return Os.isFamily(Os.FAMILY_WINDOWS);
     }
 
-    private StringBuilder getCPasString(Collection<org.sonatype.aether.artifact.Artifact> artifacts) {
+    private StringBuilder getCPasString(Collection<org.eclipse.aether.artifact.Artifact> artifacts) {
         StringBuilder sb = new StringBuilder();
-        for (org.sonatype.aether.artifact.Artifact a : artifacts) {
+        for (org.eclipse.aether.artifact.Artifact a : artifacts) {
             sb.append(a.getFile().getAbsolutePath());
             sb.append(File.pathSeparator);
         }
         return sb;
     }
 
-    private void sortArtifacts(DependencyResult result, Map<String, org.sonatype.aether.artifact.Artifact> cp, Set<org.sonatype.aether.artifact.Artifact> endorsedCp) {
+    private void sortArtifacts(DependencyResult result, Map<String, org.eclipse.aether.artifact.Artifact> cp, Set<org.eclipse.aether.artifact.Artifact> endorsedCp) {
         PreorderNodeListGenerator nlg = new PreorderNodeListGenerator();
         FilteringDependencyVisitor visitor = new FilteringDependencyVisitor(
                 nlg, new NotDependencyFilter(new EndorsedFilter()));
         result.getRoot().accept(visitor);
-        for (org.sonatype.aether.artifact.Artifact a : nlg.getArtifacts(false)) {
+        for (org.eclipse.aether.artifact.Artifact a : nlg.getArtifacts(false)) {
             cp.put(a.getGroupId() + ":" + a.getArtifactId(), a);
         }
 
@@ -546,7 +547,7 @@ abstract class AbstractJaxwsMojo extends AbstractMojo {
          * {@inheritDoc}
          */
         public boolean accept(DependencyNode node, List<DependencyNode> parents) {
-            org.sonatype.aether.artifact.Artifact a = node.getDependency().getArtifact();
+            org.eclipse.aether.artifact.Artifact a = node.getDependency().getArtifact();
             return !toExclude.contains(new Dep(a.getGroupId(), a.getArtifactId()));
         }
 

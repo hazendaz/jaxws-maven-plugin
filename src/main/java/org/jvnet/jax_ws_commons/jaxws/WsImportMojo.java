@@ -36,6 +36,7 @@
 
 package org.jvnet.jax_ws_commons.jaxws;
 
+import java.io.Closeable;
 import java.io.File;
 import java.io.FileFilter;
 import java.io.IOException;
@@ -527,7 +528,6 @@ abstract class WsImportMojo extends AbstractJaxwsMojo
      */
     private URL[] getWSDLFiles() throws MojoExecutionException {
         List<URL> files = new ArrayList<URL>();
-        @SuppressWarnings("unchecked")
         Set<Artifact> dependencyArtifacts = project.getDependencyArtifacts();
         List<URL> urlCpath = new ArrayList<URL>(dependencyArtifacts.size());
         for (Artifact a: dependencyArtifacts) {
@@ -543,7 +543,6 @@ abstract class WsImportMojo extends AbstractJaxwsMojo
             }
         }
         // Suppress this warning because it is actually being closed if the type is URLClassLoader
-        @SuppressWarnings("resource")
         ClassLoader loader = urlCpath.isEmpty()
                 ? Thread.currentThread().getContextClassLoader()
                 : new URLClassLoader(urlCpath.toArray(new URL[0]));
@@ -614,9 +613,9 @@ abstract class WsImportMojo extends AbstractJaxwsMojo
                 }
             }
         }
-        if (loader instanceof URLClassLoader) {
+        if (loader instanceof Closeable) {
             try {
-                ((URLClassLoader) loader).close();
+                ((Closeable) loader).close();
             } catch (IOException e) {
                 throw new MojoExecutionException(e.getMessage(), e);
             }
