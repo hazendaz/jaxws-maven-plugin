@@ -22,9 +22,9 @@
     <href>http://jax-ws.java.net/</href>
   </bannerLeft>
   <skin>
-    <groupId>com.sun.enterprise.glassfish</groupId>
-    <artifactId>maven-skin</artifactId>
-    <version>1.0</version>
+    <groupId>net.trajano.maven.skins</groupId>
+    <artifactId>twentyfourteen-maven-skin</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
   </skin>
 
   <body>
