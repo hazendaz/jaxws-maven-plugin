@@ -54,8 +54,6 @@ import java.util.logging.Logger;
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.artifact.versioning.ArtifactVersion;
 import org.apache.maven.artifact.versioning.OverConstrainedVersionException;
-import org.apache.maven.model.Dependency;
-import org.apache.maven.model.Plugin;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.descriptor.PluginDescriptor;
@@ -68,16 +66,6 @@ import org.codehaus.plexus.util.cli.CommandLineUtils;
 import org.codehaus.plexus.util.cli.Commandline;
 import org.codehaus.plexus.util.cli.DefaultConsumer;
 import org.codehaus.plexus.util.cli.StreamConsumer;
-import org.eclipse.aether.RepositorySystem;
-import org.eclipse.aether.RepositorySystemSession;
-import org.eclipse.aether.graph.DependencyFilter;
-import org.eclipse.aether.graph.DependencyNode;
-import org.eclipse.aether.repository.RemoteRepository;
-import org.eclipse.aether.resolution.DependencyResolutionException;
-import org.eclipse.aether.resolution.DependencyResult;
-import org.eclipse.aether.util.filter.NotDependencyFilter;
-import org.eclipse.aether.util.graph.visitor.FilteringDependencyVisitor;
-import org.eclipse.aether.util.graph.visitor.PreorderNodeListGenerator;
 
 /**
  *
@@ -143,40 +131,6 @@ abstract class AbstractJaxwsMojo extends AbstractMojo {
      */
     @Parameter
     private File executable;
-
-    /**
-     * The entry point to Aether, i.e. the component doing all the work.
-     *
-     * @since 2.3.1
-     */
-    @Component
-    private RepositorySystem repoSystem;
-
-    /**
-     * The current repository/network configuration of Maven.
-     *
-     * @since 2.3.1
-     */
-    @Parameter(defaultValue = "${repositorySystemSession}", readonly = true)
-    private RepositorySystemSession repoSession;
-
-    /**
-     * The project's remote repositories to use for the resolution of project
-     * dependencies.
-     *
-     * @since 2.3.1
-     */
-    @Parameter(defaultValue = "${project.remoteProjectRepositories}", readonly = true)
-    private List<RemoteRepository> projectRepos;
-
-    /**
-     * The project's remote repositories to use for the resolution of plugins
-     * and their dependencies.
-     *
-     * @since 2.3.1
-     */
-    @Parameter(defaultValue = "${project.remotePluginRepositories}", readonly = true)
-    private List<RemoteRepository> pluginRepos;
 
     /*
      * Information about this plugin, used to lookup this plugin's configuration
@@ -389,8 +343,6 @@ abstract class AbstractJaxwsMojo extends AbstractMojo {
             if (CommandLineUtils.executeCommandLine(cmd, sc, sc) != 0) {
                 throw new MojoExecutionException("Mojo failed - check output");
             }
-        } catch (DependencyResolutionException dre) {
-            throw new MojoExecutionException(dre.getMessage(), dre);
         } catch (CommandLineException t) {
             throw new MojoExecutionException(t.getMessage(), t);
         }
@@ -415,40 +367,30 @@ abstract class AbstractJaxwsMojo extends AbstractMojo {
     protected String[] getExtraArtifactIDs() {
         return new String[0];
     }
-
-    private String[] getCP() throws DependencyResolutionException {
-        Set<org.eclipse.aether.artifact.Artifact> endorsedCp = new HashSet<org.eclipse.aether.artifact.Artifact>();
-        Map<String, org.eclipse.aether.artifact.Artifact> cp = new HashMap<String, org.eclipse.aether.artifact.Artifact>();
-        Plugin p = pluginDescriptor.getPlugin();
-        boolean toolsFound = false;
-        for (Dependency d : p.getDependencies()) {
-            DependencyResult result = DependencyResolver.resolve(d,
-                    new ExclusionFilter(d.getExclusions()),
-                    pluginRepos, repoSystem, repoSession);
-            sortArtifacts(result, cp, endorsedCp);
-            if (containsTools(cp.keySet())) {
-                toolsFound = true;
-            }
+    
+    /**
+     * This gets the dependencies of the plugin and of the project then sorts
+     * them into three classpath groups.
+     * <ul>
+     * <li><code>[0]</code> endorsed list. This contains a list of endorsed
+     * dependencies.</li>
+     * <li><code>[1]</code> classes that are not part of the endorsed list.</li>
+     * <li><code>[2]</code> the invoker path.</li>
+     * </ul>
+     * 
+     * @return an array of three strings representing the classpath.
+     */
+    private String[] getCP() {
+        final Set<Artifact> endorsedCp = new HashSet<Artifact>();
+        final Map<String, Artifact> cp = new HashMap<String, Artifact>();
+        for (final Artifact a : pluginDescriptor.getArtifacts()) {
+            sortArtifacts(a, cp, endorsedCp);
         }
-        for (String dep : getExtraDependencies()) {
-            DependencyResult result = DependencyResolver.resolve(
-                    pluginDescriptor.getArtifactMap().get(dep),
-                    toolsFound ? new DepFilter(getExtraArtifactIDs()) : null,
-                    pluginRepos, repoSystem, repoSession);
-            sortArtifacts(result, cp, endorsedCp);
-        }
-        if (!containsTools(cp.keySet())) {
-            DependencyResult result = DependencyResolver.resolve(
-                    pluginDescriptor.getArtifactMap().get("com.sun.xml.ws:jaxws-tools"),
-                    null, pluginRepos, repoSystem, repoSession);
-            sortArtifacts(result, cp, endorsedCp);
-        }
-        StringBuilder sb = getCPasString(cp.values());
-        StringBuilder esb = getCPasString(endorsedCp);
-        //add custom invoker
+        final StringBuilder sb = getCPasString(cp.values());
+        final StringBuilder esb = getCPasString(endorsedCp);
         String invokerPath = AbstractJaxwsMojo.class.getProtectionDomain().getCodeSource().getLocation().toExternalForm();
-        try {
-            invokerPath = new URI(invokerPath.substring(5)).getPath();
+	try {
+	    invokerPath = new URI(invokerPath.substring(5)).getPath();
             sb.append(invokerPath);
         } catch (URISyntaxException ex) {
             throw new RuntimeException(ex);
@@ -466,129 +408,87 @@ abstract class AbstractJaxwsMojo extends AbstractMojo {
         return new String[]{esb.substring(0, ((esb.length() > 0) ? esb.length() - 1 : 0)), sb.substring(0, sb.length() - 1), invokerPath};
     }
 
-    private String getJavaExec() {
-        return isWindows() ? "java.exe" : "java";
-    }
+	private String getJavaExec() {
+		return isWindows() ? "java.exe" : "java";
+	}
 
-    private File createPathFile(String cp) throws IOException {
-        File f = File.createTempFile("jax-ws-mvn-plugin-cp", ".txt");
-        if (f.exists() && f.isFile() && !f.delete()) {
-            //this should not happen
-            getLog().warn("cannot remove obsolete classpath setting file: " + f.getAbsolutePath());
+	private File createPathFile(String cp) throws IOException {
+		File f = File.createTempFile("jax-ws-mvn-plugin-cp", ".txt");
+		if (f.exists() && f.isFile() && !f.delete()) {
+			// this should not happen
+			getLog().warn(
+					"cannot remove obsolete classpath setting file: "
+							+ f.getAbsolutePath());
+		}
+		Properties p = new Properties();
+		p.put("cp", cp.replace(File.separatorChar, '/'));
+		getLog().debug(
+				"stored classpath: " + cp.replace(File.separatorChar, '/'));
+		FileOutputStream fos = null;
+		try {
+			fos = new FileOutputStream(f);
+			p.store(fos, null);
+		} catch (IOException ex) {
+			LOG.log(Level.SEVERE, null, ex);
+		} finally {
+			if (fos != null) {
+				try {
+					fos.close();
+				} catch (IOException ex) {
+					LOG.log(Level.SEVERE, null, ex);
+				}
+			}
+		}
+		return f;
+	}
+
+	private boolean isWindows() {
+		return Os.isFamily(Os.FAMILY_WINDOWS);
+	}
+
+	private StringBuilder getCPasString(Collection<Artifact> artifacts) {
+		StringBuilder sb = new StringBuilder();
+		for (Artifact a : artifacts) {
+			sb.append(a.getFile().getAbsolutePath());
+			sb.append(File.pathSeparator);
+		}
+		return sb;
+	}
+
+	/**
+	 * Places the artifact in either the endorsed classpath set or the normal
+	 * classpath map.
+	 * 
+	 * @param a
+	 *            artifact to sort
+	 * @param cp
+	 *            normal classpath map
+	 * @param endorsedCp
+	 *            endorsed classpath set
+	 */
+	private void sortArtifacts(Artifact a, Map<String, Artifact> cp,
+			Set<Artifact> endorsedCp) {
+		if (isEndorsedArtifact(a)) {
+			endorsedCp.add(a);
+		} else {
+			cp.put(a.getGroupId() + ":" + a.getArtifactId(), a);
+		}
+	}
+	
+	private boolean isEndorsedArtifact(Artifact a) {
+        if ("jaxws-api".equals(a.getArtifactId())
+                || "jaxb-api".equals(a.getArtifactId())
+                || "saaj-api".equals(a.getArtifactId())
+                || "jsr181-api".equals(a.getArtifactId())
+                || "javax.annotation".equals(a.getArtifactId())
+                || "javax.annotation-api".equals(a.getArtifactId())
+                || "webservices-api".equals(a.getArtifactId())) {
+            return true;
+        } else if (a.getArtifactId().startsWith("javax.xml.ws")
+                || a.getArtifactId().startsWith("javax.xml.bind")) {
+            return true;
         }
-        Properties p = new Properties();
-        p.put("cp", cp.replace(File.separatorChar, '/'));
-        getLog().debug("stored classpath: " + cp.replace(File.separatorChar, '/'));
-        FileOutputStream fos = null;
-        try {
-            fos = new FileOutputStream(f);
-            p.store(fos, null);
-        } catch (IOException ex) {
-            LOG.log(Level.SEVERE, null, ex);
-        } finally {
-            if (fos != null) {
-                try {
-                    fos.close();
-                } catch (IOException ex) {
-                    LOG.log(Level.SEVERE, null, ex);
-                }
-            }
-        }
-        return f;
-    }
+        return false;
+	}
 
-    private boolean isWindows() {
-        return Os.isFamily(Os.FAMILY_WINDOWS);
-    }
-
-    private StringBuilder getCPasString(Collection<org.eclipse.aether.artifact.Artifact> artifacts) {
-        StringBuilder sb = new StringBuilder();
-        for (org.eclipse.aether.artifact.Artifact a : artifacts) {
-            sb.append(a.getFile().getAbsolutePath());
-            sb.append(File.pathSeparator);
-        }
-        return sb;
-    }
-
-    private void sortArtifacts(DependencyResult result, Map<String, org.eclipse.aether.artifact.Artifact> cp, Set<org.eclipse.aether.artifact.Artifact> endorsedCp) {
-        PreorderNodeListGenerator nlg = new PreorderNodeListGenerator();
-        FilteringDependencyVisitor visitor = new FilteringDependencyVisitor(
-                nlg, new NotDependencyFilter(new EndorsedFilter()));
-        result.getRoot().accept(visitor);
-        for (org.eclipse.aether.artifact.Artifact a : nlg.getArtifacts(false)) {
-            cp.put(a.getGroupId() + ":" + a.getArtifactId(), a);
-        }
-
-        nlg = new PreorderNodeListGenerator();
-        visitor = new FilteringDependencyVisitor(
-                nlg, new EndorsedFilter());
-        result.getRoot().accept(visitor);
-        endorsedCp.addAll(nlg.getArtifacts(false));
-    }
-
-    private boolean containsTools(Set<String> cp) {
-        return  cp.contains("com.sun.xml.ws:jaxws-tools")
-                || cp.contains("org.glassfish.metro:webservices-tools")
-                || cp.contains("com.oracle.weblogic:weblogic-server-pom");
-    }
-
-    private static class DepFilter implements DependencyFilter {
-
-        private final Set<Dep> toExclude = new HashSet<Dep>();
-
-        public DepFilter(String[] artifacts) {
-            if (artifacts != null) {
-                for (String a : artifacts) {
-                    int i = a.indexOf(':');
-                    toExclude.add(new Dep(a.substring(0, i), a.substring(i + 1)));
-                }
-            }
-        }
-
-        /**
-         * {@inheritDoc}
-         */
-        public boolean accept(DependencyNode node, List<DependencyNode> parents) {
-            org.eclipse.aether.artifact.Artifact a = node.getDependency().getArtifact();
-            return !toExclude.contains(new Dep(a.getGroupId(), a.getArtifactId()));
-        }
-
-        private static class Dep {
-
-            private final String groupId;
-            private final String artifactId;
-
-            public Dep(String groupId, String artifactId) {
-                this.groupId = groupId;
-                this.artifactId = artifactId;
-            }
-
-            @Override
-            public int hashCode() {
-                int hash = 5;
-                hash = 37 * hash + (this.groupId != null ? this.groupId.hashCode() : 0);
-                return hash;
-            }
-
-            @Override
-            public boolean equals(Object obj) {
-                if (obj == null) {
-                    return false;
-                }
-                if (getClass() != obj.getClass()) {
-                    return false;
-                }
-                final Dep other = (Dep) obj;
-                if ((this.groupId == null)
-                        ? (other.groupId != null)
-                        : !this.groupId.equals(other.groupId)) {
-                    return false;
-                }
-                //startsWith here is intentional
-                return !((this.artifactId == null)
-                        ? (other.artifactId != null)
-                        : !this.artifactId.startsWith(other.artifactId));
-            }
-        }
-    }
 }

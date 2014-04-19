@@ -107,7 +107,7 @@
         </developer>
     </developers>
     <prerequisites>
-        <maven>3.2.1</maven>
+        <maven>3.0.0</maven>
     </prerequisites>
 
     <dependencyManagement>
@@ -169,16 +169,6 @@
                 <artifactId>maven-settings</artifactId>
                 <version>3.2.3</version>
             </dependency>
-            <dependency>
-                <groupId>org.eclipse.aether</groupId>
-                <artifactId>aether-api</artifactId>
-                <version>1.0.0.v20140518</version>
-            </dependency>
-            <dependency>
-                <groupId>org.eclipse.aether</groupId>
-                <artifactId>aether-util</artifactId>
-                <version>1.0.0.v20140518</version>
-            </dependency>
         </dependencies>
     </dependencyManagement>
 
@@ -212,6 +202,11 @@
             <artifactId>maven-plugin-api</artifactId>
         </dependency>
         <dependency>
+            <groupId>org.apache.maven.shared</groupId>
+            <artifactId>maven-dependency-tree</artifactId>
+            <version>2.1</version>
+        </dependency>
+        <dependency>
             <groupId>org.jvnet.jaxb2_commons</groupId>
             <artifactId>jaxb2-basics</artifactId>
             <version>0.6.5</version>
@@ -229,14 +224,6 @@
         <dependency>
             <groupId>org.apache.maven</groupId>
             <artifactId>maven-settings</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.eclipse.aether</groupId>
-            <artifactId>aether-api</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.eclipse.aether</groupId>
-            <artifactId>aether-util</artifactId>
         </dependency>
     </dependencies>
     <build>
@@ -329,6 +316,7 @@
             <plugin>
                 <groupId>org.glassfish.copyright</groupId>
                 <artifactId>glassfish-copyright-maven-plugin</artifactId>
+                <version>1.39</version>
                 <configuration>
                     <templateFile>${project.basedir}/copyright.txt</templateFile>
                     <excludeFile>${project.basedir}/copyright-exclude</excludeFile>
@@ -351,7 +339,6 @@
     <reporting>
         <plugins>
             <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-jxr-plugin</artifactId>
                 <version>2.3</version>
                 <reportSets>
@@ -367,12 +354,10 @@
                 </configuration>
             </plugin>
             <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-plugin-plugin</artifactId>
                 <version>3.2</version>
             </plugin>
             <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-project-info-reports-plugin</artifactId>
                 <version>2.6</version>
                 <reportSets>

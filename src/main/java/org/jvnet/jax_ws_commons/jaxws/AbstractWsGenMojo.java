@@ -44,7 +44,9 @@ import java.net.URLClassLoader;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Set;
+
 import javax.jws.WebService;
+
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.model.Resource;
 import org.apache.maven.plugin.MojoExecutionException;
@@ -168,7 +170,8 @@ abstract class AbstractWsGenMojo extends AbstractJaxwsMojo {
         return "com.sun.tools.ws.wscompile.WsgenTool";
     }
 
-    @Override
+    @SuppressWarnings("unchecked")
+	@Override
     protected String getExtraClasspath() {
         StringBuilder buf = new StringBuilder();
         buf.append(getClassesDir().getAbsolutePath());
