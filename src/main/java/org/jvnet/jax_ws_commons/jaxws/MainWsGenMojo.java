@@ -38,6 +38,7 @@ package org.jvnet.jax_ws_commons.jaxws;
 
 import java.io.File;
 import java.io.IOException;
+
 import org.apache.maven.model.Plugin;
 import org.apache.maven.model.PluginExecution;
 import org.apache.maven.plugin.MojoExecutionException;
