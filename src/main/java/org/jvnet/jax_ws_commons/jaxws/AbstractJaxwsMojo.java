@@ -457,7 +457,8 @@ abstract class AbstractJaxwsMojo extends AbstractMojo {
 
 	/**
 	 * Places the artifact in either the endorsed classpath set or the normal
-	 * classpath map.
+	 * classpath map.  It will only add those in "compile" and "runtime" scope
+	 * or those that are specifically endorsed.
 	 * 
 	 * @param a
 	 *            artifact to sort
@@ -470,7 +471,8 @@ abstract class AbstractJaxwsMojo extends AbstractMojo {
 			Set<Artifact> endorsedCp) {
 		if (isEndorsedArtifact(a)) {
 			endorsedCp.add(a);
-		} else {
+		} else if ("compile".equals(a.getScope())
+				|| "runtime".equals(a.getScope())) {
 			cp.put(a.getGroupId() + ":" + a.getArtifactId(), a);
 		}
 	}
