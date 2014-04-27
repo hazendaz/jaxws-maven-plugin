@@ -528,6 +528,7 @@ abstract class WsImportMojo extends AbstractJaxwsMojo
      */
     private URL[] getWSDLFiles() throws MojoExecutionException {
         List<URL> files = new ArrayList<URL>();
+        @SuppressWarnings("unchecked")
         Set<Artifact> dependencyArtifacts = project.getDependencyArtifacts();
         List<URL> urlCpath = new ArrayList<URL>(dependencyArtifacts.size());
         for (Artifact a: dependencyArtifacts) {
