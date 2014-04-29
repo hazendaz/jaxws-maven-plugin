@@ -125,7 +125,7 @@ import org.codehaus.plexus.util.xml.Xpp3Dom;
         } else {
             // WEB-INF/wsdl for war
 <span class="nc" id="L127">            String targetPath = null;</span>
-<span class="nc" id="L128">            Plugin war = (Plugin)project.getBuild().getPluginsAsMap().get(&quot;org.apache.maven.plugins:maven-war-plugin&quot;);</span>
+<span class="nc" id="L128">            Plugin war = project.getBuild().getPluginsAsMap().get(&quot;org.apache.maven.plugins:maven-war-plugin&quot;);</span>
 <span class="nc bnc" id="L129" title="All 2 branches missed.">            for (PluginExecution exec : war.getExecutions()) {</span>
                 //check execution/configuration
 <span class="nc" id="L131">                String s = getWebappDirectory(exec.getConfiguration());</span>
