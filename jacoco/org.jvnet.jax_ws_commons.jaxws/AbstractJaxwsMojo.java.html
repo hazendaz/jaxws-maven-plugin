@@ -1,0 +1,520 @@
+<?xml version="1.0" encoding="utf-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>AbstractJaxwsMojo.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Maven JAXWS 2.x Plugin</a> &gt; <a href="index.source.html" class="el_package">org.jvnet.jax_ws_commons.jaxws</a> &gt; <span class="el_source">AbstractJaxwsMojo.java</span></div><h1>AbstractJaxwsMojo.java</h1><pre class="source lang-java linenums">/*
+ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
+ *
+ * Copyright (c) 2012-2013 Oracle and/or its affiliates. All rights reserved.
+ *
+ * Oracle licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ *
+ * This file incorporates work covered by the following copyright and
+ * permission notice:
+ *
+ * Copyright 2006 Codehaus
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.jvnet.jax_ws_commons.jaxws;
+
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
+import org.apache.maven.artifact.Artifact;
+import org.apache.maven.artifact.versioning.ArtifactVersion;
+import org.apache.maven.artifact.versioning.OverConstrainedVersionException;
+import org.apache.maven.plugin.AbstractMojo;
+import org.apache.maven.plugin.MojoExecutionException;
+import org.apache.maven.plugin.descriptor.PluginDescriptor;
+import org.apache.maven.plugins.annotations.Component;
+import org.apache.maven.plugins.annotations.Parameter;
+import org.apache.maven.project.MavenProject;
+import org.codehaus.plexus.util.Os;
+import org.codehaus.plexus.util.cli.CommandLineException;
+import org.codehaus.plexus.util.cli.CommandLineUtils;
+import org.codehaus.plexus.util.cli.Commandline;
+import org.codehaus.plexus.util.cli.DefaultConsumer;
+import org.codehaus.plexus.util.cli.StreamConsumer;
+
+/**
+ *
+ * @author dantran &lt;dantran@apache.org&gt;
+ * @version $Id: AbstractJaxwsMojo.java 3240 2007-02-04 07:13:21Z dantran $ *
+ */
+<span class="nc" id="L75">abstract class AbstractJaxwsMojo extends AbstractMojo {</span>
+
+	/**
+	 * The Maven Project Object.
+	 */
+	@Component
+	protected MavenProject project;
+
+	/**
+	 * Output messages about what the tool is doing.
+	 */
+	@Parameter(defaultValue = &quot;false&quot;)
+	protected boolean verbose;
+
+	/**
+	 * Keep generated files.
+	 */
+	@Parameter(defaultValue = &quot;true&quot;)
+	protected boolean keep;
+
+	/**
+	 * Allow to use the JAXWS Vendor Extensions.
+	 */
+	@Parameter(defaultValue = &quot;false&quot;)
+	private boolean extension;
+
+	/**
+	 * Specify character encoding used by source files.
+	 */
+	@Parameter(property = &quot;project.build.sourceEncoding&quot;)
+	protected String encoding;
+
+	/**
+	 * Specify optional command-line options.
+	 * &lt;p&gt;
+	 * Multiple elements can be specified, and each token must be placed in its
+	 * own list.
+	 * &lt;/p&gt;
+	 */
+	@Parameter
+	private List&lt;String&gt; args;
+
+	/**
+	 * Specify optional JVM options.
+	 * &lt;p&gt;
+	 * Multiple elements can be specified, and each token must be placed in its
+	 * own list.
+	 * &lt;/p&gt;
+	 */
+	@Parameter
+	private List&lt;String&gt; vmArgs;
+
+	/**
+	 * Path to the executable. Should be either wsgen or wsimport but basically
+	 * any script which will understand passed in arguments will work.
+	 *
+	 * @since 2.2.1
+	 */
+	@Parameter
+	private File executable;
+
+
+	/**
+	 * Information about this plugin, used to lookup this plugin's configuration
+	 * from the currently executing project.
+	 * 
+	 * @since 2.3.1
+	 */
+	@Parameter(defaultValue = &quot;${plugin}&quot;, readonly = true)
+	protected PluginDescriptor pluginDescriptor;
+
+	/**
+	 * Logger.
+	 */
+<span class="fc" id="L149">	private static final Logger LOG = Logger.getLogger(AbstractJaxwsMojo.class</span>
+<span class="fc" id="L150">			.getName());</span>
+<span class="fc" id="L151">	private static final List&lt;String&gt; METRO_22 = new ArrayList&lt;String&gt;();</span>
+<span class="fc" id="L152">	private static final List&lt;String&gt; METRO_221 = new ArrayList&lt;String&gt;();</span>
+<span class="fc" id="L153">	private static final List&lt;String&gt; METRO_23 = new ArrayList&lt;String&gt;();</span>
+
+	static {
+<span class="fc" id="L156">		METRO_22.add(&quot;-encoding&quot;);</span>
+<span class="fc" id="L157">		METRO_22.add(&quot;-clientjar&quot;);</span>
+<span class="fc" id="L158">		METRO_22.add(&quot;-generateJWS&quot;);</span>
+<span class="fc" id="L159">		METRO_22.add(&quot;-implDestDir&quot;);</span>
+<span class="fc" id="L160">		METRO_22.add(&quot;-implServiceName&quot;);</span>
+<span class="fc" id="L161">		METRO_22.add(&quot;-implPortName&quot;);</span>
+<span class="fc" id="L162">		METRO_221.addAll(METRO_22);</span>
+<span class="fc" id="L163">		METRO_221.add(&quot;-XdisableAuthenticator&quot;);</span>
+<span class="fc" id="L164">		METRO_23.addAll(METRO_221);</span>
+<span class="fc" id="L165">		METRO_23.add(&quot;-x&quot;);</span>
+<span class="fc" id="L166">	}</span>
+
+	protected abstract String getMain();
+
+	/**
+	 * Either ${build.outputDirectory} or ${build.testOutputDirectory}.
+	 */
+	protected abstract File getDestDir();
+
+	protected abstract File getSourceDestDir();
+
+	protected void addSourceRoot(String sourceDir) {
+<span class="nc bnc" id="L178" title="All 2 branches missed.">		if (!project.getCompileSourceRoots().contains(sourceDir)) {</span>
+<span class="nc" id="L179">			getLog().debug(&quot;adding src root: &quot; + sourceDir);</span>
+<span class="nc" id="L180">			project.addCompileSourceRoot(sourceDir);</span>
+<span class="nc" id="L181">		} else {</span>
+<span class="nc" id="L182">			getLog().debug(&quot;existing src root: &quot; + sourceDir);</span>
+		}
+<span class="nc" id="L184">	}</span>
+
+	protected abstract File getDefaultSrcOut();
+
+	/**
+	 * Checks if compilation after code generation and let generated sources be
+	 * compiled by maven during compilation phase.
+	 */
+	protected abstract boolean isXnocompile();
+
+	protected String getExtraClasspath() {
+<span class="nc" id="L195">		return null;</span>
+	}
+
+	protected boolean isExtensionOn() {
+<span class="nc" id="L199">		return extension;</span>
+	}
+
+	protected List&lt;String&gt; getCommonArgs() throws MojoExecutionException {
+<span class="nc" id="L203">		List&lt;String&gt; commonArgs = new ArrayList&lt;String&gt;();</span>
+
+<span class="nc bnc" id="L205" title="All 4 branches missed.">		if (!isDefaultSrc(getSourceDestDir()) || keep) {</span>
+<span class="nc" id="L206">			commonArgs.add(&quot;-keep&quot;);</span>
+<span class="nc" id="L207">			commonArgs.add(&quot;-s&quot;);</span>
+<span class="nc" id="L208">			commonArgs.add(&quot;'&quot; + getSourceDestDir().getAbsolutePath() + &quot;'&quot;);</span>
+<span class="nc bnc" id="L209" title="All 4 branches missed.">			if (!getSourceDestDir().mkdirs() &amp;&amp; !getSourceDestDir().exists()) {</span>
+<span class="nc" id="L210">				getLog().warn(</span>
+<span class="nc" id="L211">						&quot;Cannot create directory: &quot;</span>
+<span class="nc" id="L212">								+ getSourceDestDir().getAbsolutePath());</span>
+			}
+<span class="nc" id="L214">			addSourceRoot(getSourceDestDir().getAbsolutePath());</span>
+		}
+
+<span class="nc" id="L217">		File destDir = getDestDir();</span>
+<span class="nc bnc" id="L218" title="All 4 branches missed.">		if (!destDir.mkdirs() &amp;&amp; !destDir.exists()) {</span>
+<span class="nc" id="L219">			getLog().warn(</span>
+<span class="nc" id="L220">					&quot;Cannot create directory: &quot; + destDir.getAbsolutePath());</span>
+		}
+<span class="nc" id="L222">		commonArgs.add(&quot;-d&quot;);</span>
+<span class="nc" id="L223">		commonArgs.add(&quot;'&quot; + destDir.getAbsolutePath() + &quot;'&quot;);</span>
+
+<span class="nc bnc" id="L225" title="All 2 branches missed.">		if (verbose) {</span>
+<span class="nc" id="L226">			commonArgs.add(&quot;-verbose&quot;);</span>
+		}
+
+<span class="nc bnc" id="L229" title="All 2 branches missed.">		if (isArgSupported(&quot;-encoding&quot;)) {</span>
+<span class="nc bnc" id="L230" title="All 2 branches missed.">			if (encoding != null) {</span>
+<span class="nc" id="L231">				maybeUnsupportedOption(&quot;-encoding&quot;, encoding, commonArgs);</span>
+<span class="nc" id="L232">			} else {</span>
+<span class="nc" id="L233">				getLog().warn(</span>
+<span class="nc" id="L234">						&quot;Using platform encoding (&quot;</span>
+<span class="nc" id="L235">								+ System.getProperty(&quot;file.encoding&quot;)</span>
+<span class="nc" id="L236">								+ &quot;), build is platform dependent!&quot;);</span>
+			}
+		}
+
+<span class="nc bnc" id="L240" title="All 2 branches missed.">		if (isExtensionOn()) {</span>
+<span class="nc" id="L241">			commonArgs.add(&quot;-extension&quot;);</span>
+		}
+
+<span class="nc bnc" id="L244" title="All 2 branches missed.">		if (isXnocompile()) {</span>
+<span class="nc" id="L245">			commonArgs.add(&quot;-Xnocompile&quot;);</span>
+		}
+
+		// add additional command line options
+<span class="nc bnc" id="L249" title="All 2 branches missed.">		if (args != null) {</span>
+<span class="nc bnc" id="L250" title="All 2 branches missed.">			for (String arg : args) {</span>
+<span class="nc" id="L251">				commonArgs.add(arg);</span>
+			}
+		}
+<span class="nc" id="L254">		return commonArgs;</span>
+	}
+
+	protected boolean isArgSupported(String arg) throws MojoExecutionException {
+		// try Metro first
+<span class="nc" id="L259">		Artifact a = pluginDescriptor.getArtifactMap().get(</span>
+<span class="nc" id="L260">				&quot;org.glassfish.metro:webservices-tools&quot;);</span>
+<span class="nc" id="L261">		List&lt;String&gt; supportedArgs = null;</span>
+<span class="nc" id="L262">		String v = null;</span>
+		try {
+<span class="nc bnc" id="L264" title="All 2 branches missed.">			if (a != null) {</span>
+<span class="nc" id="L265">				ArtifactVersion av = a.getSelectedVersion();</span>
+<span class="nc" id="L266">				v = av.toString();</span>
+<span class="nc bnc" id="L267" title="All 4 branches missed.">				if (av.getMajorVersion() == 2 &amp;&amp; av.getMinorVersion() == 2</span>
+<span class="nc bnc" id="L268" title="All 2 branches missed.">						&amp;&amp; av.getIncrementalVersion() == 0) {</span>
+<span class="nc" id="L269">					supportedArgs = METRO_22;</span>
+<span class="nc bnc" id="L270" title="All 2 branches missed.">				} else if (av.getMajorVersion() == 2</span>
+<span class="nc bnc" id="L271" title="All 2 branches missed.">						&amp;&amp; av.getMinorVersion() == 2</span>
+<span class="nc bnc" id="L272" title="All 2 branches missed.">						&amp;&amp; av.getIncrementalVersion() &gt;= 1) {</span>
+<span class="nc" id="L273">					supportedArgs = METRO_221;</span>
+<span class="nc" id="L274">				} else { // if (av.getMajorVersion() &gt;= 2 &amp;&amp;</span>
+							// av.getMinorVersion() &gt;= 3) {
+<span class="nc" id="L276">					supportedArgs = METRO_23;</span>
+				}
+<span class="nc" id="L278">			} else {</span>
+				// fallback to RI
+<span class="nc" id="L280">				a = pluginDescriptor.getArtifactMap().get(</span>
+<span class="nc" id="L281">						&quot;com.sun.xml.ws:jaxws-tools&quot;);</span>
+<span class="nc" id="L282">				ArtifactVersion av = a.getSelectedVersion();</span>
+<span class="nc" id="L283">				v = av.toString();</span>
+<span class="nc bnc" id="L284" title="All 4 branches missed.">				if (av.getMajorVersion() == 2 &amp;&amp; av.getMinorVersion() == 2</span>
+<span class="nc bnc" id="L285" title="All 2 branches missed.">						&amp;&amp; av.getIncrementalVersion() == 6) {</span>
+<span class="nc" id="L286">					supportedArgs = METRO_22;</span>
+<span class="nc bnc" id="L287" title="All 2 branches missed.">				} else if (av.getMajorVersion() == 2</span>
+<span class="nc bnc" id="L288" title="All 2 branches missed.">						&amp;&amp; av.getMinorVersion() == 2</span>
+<span class="nc bnc" id="L289" title="All 2 branches missed.">						&amp;&amp; av.getIncrementalVersion() == 7) {</span>
+<span class="nc" id="L290">					supportedArgs = METRO_221;</span>
+<span class="nc" id="L291">				} else { // if (av.getMajorVersion() &gt;= 2 &amp;&amp;</span>
+							// av.getMinorVersion() &gt;= 2 &amp;&amp;
+							// av.getIncrementalVersion() &gt;= 8) {
+<span class="nc" id="L294">					supportedArgs = METRO_23;</span>
+				}
+			}
+<span class="nc" id="L297">		} catch (OverConstrainedVersionException ex) {</span>
+<span class="nc" id="L298">			throw new MojoExecutionException(ex.getMessage(), ex);</span>
+		}
+<span class="nc" id="L300">		boolean isSupported = supportedArgs.contains(arg);</span>
+<span class="nc bnc" id="L301" title="All 2 branches missed.">		if (!isSupported) {</span>
+<span class="nc" id="L302">			getLog().warn(</span>
+<span class="nc" id="L303">					&quot;'&quot; + arg + &quot;' is not supported by &quot; + a.getArtifactId()</span>
+<span class="nc" id="L304">							+ &quot;:&quot; + v);</span>
+		}
+<span class="nc" id="L306">		return isSupported;</span>
+	}
+
+	private boolean isDefaultSrc(File srcout) {
+<span class="nc" id="L310">		return srcout.equals(getDefaultSrcOut());</span>
+	}
+
+	protected void exec(List&lt;String&gt; args) throws MojoExecutionException {
+<span class="nc" id="L314">		StreamConsumer sc = new DefaultConsumer();</span>
+		try {
+<span class="nc" id="L316">			Commandline cmd = new Commandline();</span>
+<span class="nc bnc" id="L317" title="All 2 branches missed.">			if (executable != null) {</span>
+<span class="nc bnc" id="L318" title="All 4 branches missed.">				if (executable.isFile() &amp;&amp; executable.canExecute()) {</span>
+<span class="nc" id="L319">					cmd.setExecutable(executable.getAbsolutePath());</span>
+<span class="nc bnc" id="L320" title="All 2 branches missed.">					if (getExtraClasspath() != null) {</span>
+<span class="nc" id="L321">						cmd.createArg().setLine(&quot;-cp&quot;);</span>
+<span class="nc" id="L322">						cmd.createArg().setValue(getExtraClasspath());</span>
+					}
+<span class="nc" id="L324">				} else {</span>
+<span class="nc" id="L325">					throw new MojoExecutionException(&quot;Cannot execute: &quot;</span>
+<span class="nc" id="L326">							+ executable.getAbsolutePath());</span>
+				}
+			} else {
+<span class="nc" id="L329">				cmd.setExecutable(new File(new File(System</span>
+<span class="nc" id="L330">						.getProperty(&quot;java.home&quot;), &quot;bin&quot;), getJavaExec())</span>
+<span class="nc" id="L331">						.getAbsolutePath());</span>
+				// add additional JVM options
+<span class="nc bnc" id="L333" title="All 2 branches missed.">				if (vmArgs != null) {</span>
+<span class="nc bnc" id="L334" title="All 2 branches missed.">					for (String arg : vmArgs) {</span>
+<span class="nc" id="L335">						cmd.createArg().setLine(arg);</span>
+					}
+				}
+<span class="nc" id="L338">				String[] classpath = getCP();</span>
+<span class="nc" id="L339">				cmd.createArg().setValue(&quot;-Xbootclasspath/p:&quot; + classpath[0]);</span>
+<span class="nc" id="L340">				cmd.createArg().setValue(&quot;-cp&quot;);</span>
+<span class="nc" id="L341">				cmd.createArg().setValue(classpath[2]);</span>
+<span class="nc" id="L342">				cmd.createArg().setLine(</span>
+<span class="nc" id="L343">						&quot;org.jvnet.jax_ws_commons.jaxws.Invoker&quot;);</span>
+<span class="nc" id="L344">				cmd.createArg().setLine(getMain());</span>
+<span class="nc" id="L345">				String extraCp = getExtraClasspath();</span>
+<span class="nc bnc" id="L346" title="All 2 branches missed.">				String cp = extraCp != null ? extraCp + File.pathSeparator : &quot;&quot;;</span>
+<span class="nc" id="L347">				cp += classpath[1];</span>
+				try {
+<span class="nc" id="L349">					File pathFile = createPathFile(cp);</span>
+<span class="nc" id="L350">					cmd.createArg().setLine(</span>
+<span class="nc" id="L351">							&quot;-pathfile &quot; + pathFile.getAbsolutePath());</span>
+<span class="nc" id="L352">				} catch (IOException ioe) {</span>
+					// creation of temporary file can fail, in such case just
+					// put everything on cp
+<span class="nc" id="L355">					cmd.createArg().setValue(&quot;-cp&quot;);</span>
+<span class="nc" id="L356">					cmd.createArg().setValue(cp);</span>
+				}
+			}
+<span class="nc" id="L359">			cmd.setWorkingDirectory(project.getBasedir());</span>
+<span class="nc bnc" id="L360" title="All 2 branches missed.">			for (String arg : args) {</span>
+<span class="nc" id="L361">				cmd.createArg().setLine(arg);</span>
+			}
+<span class="nc" id="L363">			String fullCommand = cmd.toString();</span>
+<span class="nc bnc" id="L364" title="All 4 branches missed.">			if (isWindows() &amp;&amp; 8191 &lt;= fullCommand.length()) {</span>
+<span class="nc" id="L365">				getLog().warn(</span>
+<span class="nc" id="L366">						&quot;Length of the command is limitted to 8191 characters but it has &quot;</span>
+<span class="nc" id="L367">								+ fullCommand.length() + &quot; characters.&quot;);</span>
+<span class="nc" id="L368">				getLog().warn(fullCommand);</span>
+<span class="nc" id="L369">			} else {</span>
+<span class="nc" id="L370">				getLog().debug(fullCommand);</span>
+			}
+<span class="nc bnc" id="L372" title="All 2 branches missed.">			if (CommandLineUtils.executeCommandLine(cmd, sc, sc) != 0) {</span>
+<span class="nc" id="L373">				throw new MojoExecutionException(&quot;Mojo failed - check output&quot;);</span>
+			}
+<span class="nc" id="L375">		} catch (CommandLineException t) {</span>
+<span class="nc" id="L376">			throw new MojoExecutionException(t.getMessage(), t);</span>
+		}
+<span class="nc" id="L378">	}</span>
+
+	protected void maybeUnsupportedOption(String option, String value,
+			List&lt;String&gt; args) {
+<span class="nc bnc" id="L382" title="All 2 branches missed.">		if (executable == null) {</span>
+<span class="nc" id="L383">			args.add(option);</span>
+<span class="nc bnc" id="L384" title="All 2 branches missed.">			if (value != null) {</span>
+<span class="nc" id="L385">				args.add(value);</span>
+			}
+<span class="nc" id="L387">		} else {</span>
+<span class="nc" id="L388">			getLog().warn(</span>
+<span class="nc" id="L389">					option</span>
+<span class="nc" id="L390">							+ &quot; may not supported on older JDKs.\n&quot;</span>
+<span class="nc" id="L391">							+ &quot;Use &lt;args&gt; to bypass this warning if you really want to use it.&quot;);</span>
+		}
+<span class="nc" id="L393">	}</span>
+
+	/**
+	 * This gets the dependencies of the plugin and of the project then sorts
+	 * them into three classpath groups.
+	 * &lt;ul&gt;
+	 * &lt;li&gt;&lt;code&gt;[0]&lt;/code&gt; endorsed list. This contains a list of endorsed
+	 * dependencies.&lt;/li&gt;
+	 * &lt;li&gt;&lt;code&gt;[1]&lt;/code&gt; classes that are not part of the endorsed list.&lt;/li&gt;
+	 * &lt;li&gt;&lt;code&gt;[2]&lt;/code&gt; the invoker path.&lt;/li&gt;
+	 * &lt;/ul&gt;
+	 * 
+	 * @return an array of three strings representing the classpath.
+	 */
+	private String[] getCP() {
+<span class="nc" id="L408">        Set&lt;Artifact&gt; endorsedCp = new HashSet&lt;Artifact&gt;();</span>
+<span class="nc" id="L409">        Map&lt;String, Artifact&gt; cp = new HashMap&lt;String, Artifact&gt;();</span>
+<span class="nc bnc" id="L410" title="All 2 branches missed.">        for (Artifact a : pluginDescriptor.getArtifacts()) {</span>
+<span class="nc" id="L411">            sortArtifacts(a, cp, endorsedCp);</span>
+        }
+<span class="nc" id="L413">        StringBuilder sb = getCPasString(cp.values());</span>
+<span class="nc" id="L414">        StringBuilder esb = getCPasString(endorsedCp);</span>
+        //add custom invoker
+<span class="nc" id="L416">        String invokerPath = AbstractJaxwsMojo.class.getProtectionDomain().getCodeSource().getLocation().toExternalForm();</span>
+        try {
+<span class="nc" id="L418">            invokerPath = new URI(invokerPath.substring(5)).getPath();</span>
+<span class="nc" id="L419">            sb.append(invokerPath);</span>
+<span class="nc" id="L420">        } catch (URISyntaxException ex) {</span>
+<span class="nc" id="L421">            throw new RuntimeException(ex);</span>
+        }
+<span class="nc" id="L423">        sb.append(File.pathSeparator);</span>
+        //don't forget tools.jar
+<span class="nc" id="L425">        File toolsJar = new File(System.getProperty(&quot;java.home&quot;), &quot;../lib/tools.jar&quot;);</span>
+<span class="nc bnc" id="L426" title="All 2 branches missed.">        if (!toolsJar.exists()) {</span>
+<span class="nc" id="L427">            toolsJar = new File(System.getProperty(&quot;java.home&quot;), &quot;lib/tools.jar&quot;);</span>
+        }
+<span class="nc" id="L429">        sb.append(toolsJar.getAbsolutePath());</span>
+<span class="nc" id="L430">        sb.append(File.pathSeparator);</span>
+<span class="nc" id="L431">        return new String[]{esb.substring(0, esb.length() - 1), sb.substring(0, sb.length() - 1), invokerPath};</span>
+    }
+
+	private String getJavaExec() {
+<span class="nc bnc" id="L435" title="All 2 branches missed.">		return isWindows() ? &quot;java.exe&quot; : &quot;java&quot;;</span>
+	}
+
+	private File createPathFile(String cp) throws IOException {
+<span class="nc" id="L439">		File f = File.createTempFile(&quot;jax-ws-mvn-plugin-cp&quot;, &quot;.txt&quot;);</span>
+<span class="nc bnc" id="L440" title="All 6 branches missed.">		if (f.exists() &amp;&amp; f.isFile() &amp;&amp; !f.delete()) {</span>
+			// this should not happen
+<span class="nc" id="L442">			getLog().warn(</span>
+<span class="nc" id="L443">					&quot;cannot remove obsolete classpath setting file: &quot;</span>
+<span class="nc" id="L444">							+ f.getAbsolutePath());</span>
+		}
+<span class="nc" id="L446">		Properties p = new Properties();</span>
+<span class="nc" id="L447">		p.put(&quot;cp&quot;, cp.replace(File.separatorChar, '/'));</span>
+<span class="nc" id="L448">		getLog().debug(</span>
+<span class="nc" id="L449">				&quot;stored classpath: &quot; + cp.replace(File.separatorChar, '/'));</span>
+<span class="nc" id="L450">		FileOutputStream fos = null;</span>
+		try {
+<span class="nc" id="L452">			fos = new FileOutputStream(f);</span>
+<span class="nc" id="L453">			p.store(fos, null);</span>
+<span class="nc" id="L454">		} catch (IOException ex) {</span>
+<span class="nc" id="L455">			LOG.log(Level.SEVERE, null, ex);</span>
+<span class="nc" id="L456">		} finally {</span>
+<span class="nc bnc" id="L457" title="All 6 branches missed.">			if (fos != null) {</span>
+				try {
+<span class="nc" id="L459">					fos.close();</span>
+<span class="nc" id="L460">				} catch (IOException ex) {</span>
+<span class="nc" id="L461">					LOG.log(Level.SEVERE, null, ex);</span>
+				}
+			}
+<span class="nc" id="L464">		}</span>
+<span class="nc" id="L465">		return f;</span>
+	}
+
+	private boolean isWindows() {
+<span class="nc" id="L469">		return Os.isFamily(Os.FAMILY_WINDOWS);</span>
+	}
+
+	private StringBuilder getCPasString(Collection&lt;Artifact&gt; artifacts) {
+<span class="nc" id="L473">		StringBuilder sb = new StringBuilder();</span>
+<span class="nc bnc" id="L474" title="All 2 branches missed.">		for (Artifact a : artifacts) {</span>
+<span class="nc" id="L475">			sb.append(a.getFile().getAbsolutePath());</span>
+<span class="nc" id="L476">			sb.append(File.pathSeparator);</span>
+		}
+<span class="nc" id="L478">		return sb;</span>
+	}
+
+	/**
+	 * Places the artifact in either the endorsed classpath set or the normal
+	 * classpath map.  It will only add those in &quot;compile&quot; and &quot;runtime&quot; scope
+	 * or those that are specifically endorsed.
+	 * 
+	 * @param a
+	 *            artifact to sort
+	 * @param cp
+	 *            normal classpath map
+	 * @param endorsedCp
+	 *            endorsed classpath set
+	 */
+	private void sortArtifacts(Artifact a, Map&lt;String, Artifact&gt; cp,
+			Set&lt;Artifact&gt; endorsedCp) {
+<span class="nc bnc" id="L495" title="All 2 branches missed.">		if (isEndorsedArtifact(a)) {</span>
+<span class="nc" id="L496">			endorsedCp.add(a);</span>
+<span class="nc bnc" id="L497" title="All 2 branches missed.">		} else if (&quot;compile&quot;.equals(a.getScope())</span>
+<span class="nc bnc" id="L498" title="All 2 branches missed.">				|| &quot;runtime&quot;.equals(a.getScope())) {</span>
+<span class="nc" id="L499">			cp.put(a.getGroupId() + &quot;:&quot; + a.getArtifactId(), a);</span>
+		}
+<span class="nc" id="L501">	}</span>
+	
+	private boolean isEndorsedArtifact(Artifact a) {
+<span class="nc bnc" id="L504" title="All 2 branches missed.">        if (&quot;jaxws-api&quot;.equals(a.getArtifactId())</span>
+<span class="nc bnc" id="L505" title="All 2 branches missed.">                || &quot;jaxb-api&quot;.equals(a.getArtifactId())</span>
+<span class="nc bnc" id="L506" title="All 2 branches missed.">                || &quot;saaj-api&quot;.equals(a.getArtifactId())</span>
+<span class="nc bnc" id="L507" title="All 2 branches missed.">                || &quot;jsr181-api&quot;.equals(a.getArtifactId())</span>
+<span class="nc bnc" id="L508" title="All 2 branches missed.">                || &quot;javax.annotation&quot;.equals(a.getArtifactId())</span>
+<span class="nc bnc" id="L509" title="All 2 branches missed.">                || &quot;javax.annotation-api&quot;.equals(a.getArtifactId())</span>
+<span class="nc bnc" id="L510" title="All 2 branches missed.">                || &quot;webservices-api&quot;.equals(a.getArtifactId())) {</span>
+<span class="nc" id="L511">            return true;</span>
+<span class="nc bnc" id="L512" title="All 2 branches missed.">        } else if (a.getArtifactId().startsWith(&quot;javax.xml.ws&quot;)</span>
+<span class="nc bnc" id="L513" title="All 2 branches missed.">                || a.getArtifactId().startsWith(&quot;javax.xml.bind&quot;)) {</span>
+<span class="nc" id="L514">            return true;</span>
+        }
+<span class="nc" id="L516">        return false;</span>
+	}
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.0.201403182114</span></div></body></html>

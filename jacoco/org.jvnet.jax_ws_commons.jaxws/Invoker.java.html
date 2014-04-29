@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>Invoker.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Maven JAXWS 2.x Plugin</a> &gt; <a href="index.source.html" class="el_package">org.jvnet.jax_ws_commons.jaxws</a> &gt; <span class="el_source">Invoker.java</span></div><h1>Invoker.java</h1><pre class="source lang-java linenums">/*
+ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
+ *
+ * Copyright (c) 2013 Oracle and/or its affiliates. All rights reserved.
+ *
+ * Oracle licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.jvnet.jax_ws_commons.jaxws;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.OutputStream;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.net.URLClassLoader;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Properties;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
+/**
+ *
+ * @author lukas
+ */
+<span class="nc" id="L39">public final class Invoker {</span>
+
+    public static void main(String... args) throws Exception {
+<span class="nc" id="L42">        int idx = 1;</span>
+<span class="nc" id="L43">        String c = args[2];</span>
+<span class="nc bnc" id="L44" title="All 2 branches missed.">        if (&quot;-pathfile&quot;.equals(args[1])) {</span>
+<span class="nc" id="L45">            Properties p = new Properties();</span>
+<span class="nc" id="L46">            File pathFile = new File(args[2]);</span>
+<span class="nc" id="L47">            pathFile.deleteOnExit();</span>
+<span class="nc" id="L48">            p.load(new FileInputStream(pathFile));</span>
+<span class="nc" id="L49">            c = p.getProperty(&quot;cp&quot;);</span>
+<span class="nc" id="L50">            idx = 3;</span>
+        }
+<span class="nc" id="L52">        List&lt;URL&gt; cp = new ArrayList&lt;URL&gt;();</span>
+<span class="nc bnc" id="L53" title="All 2 branches missed.">        for (String s: c.split(File.pathSeparator)) {</span>
+            try {
+<span class="nc" id="L55">                URL f = new File(s).toURI().toURL();</span>
+<span class="nc" id="L56">                cp.add(f);</span>
+<span class="nc" id="L57">            } catch (MalformedURLException ex) {</span>
+<span class="nc" id="L58">                Logger.getLogger(Invoker.class.getName()).log(Level.SEVERE, null, ex);</span>
+            }
+        }
+<span class="nc" id="L61">        URLClassLoader cl = new URLClassLoader(cp.toArray(new URL[cp.size()]));</span>
+<span class="nc" id="L62">        String[] wsargs = new String[args.length - idx];</span>
+<span class="nc" id="L63">        System.arraycopy(args, idx, wsargs, 0, args.length - idx);</span>
+<span class="nc" id="L64">        ClassLoader orig = Thread.currentThread().getContextClassLoader();</span>
+<span class="nc" id="L65">        String origJcp = System.getProperty(&quot;java.class.path&quot;);</span>
+<span class="nc" id="L66">        Thread.currentThread().setContextClassLoader(cl);</span>
+<span class="nc" id="L67">        System.setProperty(&quot;java.class.path&quot;, c);</span>
+        try {
+<span class="nc" id="L69">            Class&lt;?&gt; compileTool = cl.loadClass(args[0]);</span>
+<span class="nc" id="L70">            Constructor&lt;?&gt; ctor = compileTool.getConstructor(OutputStream.class);</span>
+<span class="nc" id="L71">            Object tool = ctor.newInstance(System.out);</span>
+<span class="nc" id="L72">            Method runMethod = compileTool.getMethod(&quot;run&quot;, String[].class);</span>
+<span class="nc bnc" id="L73" title="All 2 branches missed.">            System.exit((Boolean) runMethod.invoke(tool, new Object[]{wsargs}) ? 0 : 1);</span>
+<span class="nc" id="L74">        } catch (NoSuchMethodException ex) {</span>
+<span class="nc" id="L75">            Logger.getLogger(Invoker.class.getName()).log(Level.SEVERE, null, ex);</span>
+<span class="nc" id="L76">        } catch (SecurityException ex) {</span>
+<span class="nc" id="L77">            Logger.getLogger(Invoker.class.getName()).log(Level.SEVERE, null, ex);</span>
+<span class="nc" id="L78">        } catch (ClassNotFoundException ex) {</span>
+<span class="nc" id="L79">            Logger.getLogger(Invoker.class.getName()).log(Level.SEVERE, null, ex);</span>
+<span class="nc" id="L80">        } catch (InstantiationException ex) {</span>
+<span class="nc" id="L81">            Logger.getLogger(Invoker.class.getName()).log(Level.SEVERE, null, ex);</span>
+<span class="nc" id="L82">        } catch (IllegalAccessException ex) {</span>
+<span class="nc" id="L83">            Logger.getLogger(Invoker.class.getName()).log(Level.SEVERE, null, ex);</span>
+<span class="nc" id="L84">        } catch (IllegalArgumentException ex) {</span>
+<span class="nc" id="L85">            Logger.getLogger(Invoker.class.getName()).log(Level.SEVERE, null, ex);</span>
+<span class="nc" id="L86">        } catch (InvocationTargetException ex) {</span>
+<span class="nc" id="L87">            Exception rex = new RuntimeException();</span>
+<span class="nc" id="L88">            rex.initCause(ex);</span>
+<span class="nc" id="L89">            throw ex;</span>
+<span class="nc" id="L90">        } finally {</span>
+<span class="nc" id="L91">            Thread.currentThread().setContextClassLoader(orig);</span>
+<span class="nc" id="L92">            System.setProperty(&quot;java.class.path&quot;, origJcp);</span>
+<span class="nc" id="L93">        }</span>
+<span class="nc" id="L94">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.0.201403182114</span></div></body></html>

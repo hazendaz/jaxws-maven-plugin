@@ -1,0 +1,782 @@
+<?xml version="1.0" encoding="utf-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>WsImportMojo.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Maven JAXWS 2.x Plugin</a> &gt; <a href="index.source.html" class="el_package">org.jvnet.jax_ws_commons.jaxws</a> &gt; <span class="el_source">WsImportMojo.java</span></div><h1>WsImportMojo.java</h1><pre class="source lang-java linenums">/*
+ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
+ *
+ * Copyright (c) 2012-2013 Oracle and/or its affiliates. All rights reserved.
+ *
+ * Oracle licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ *
+ * This file incorporates work covered by the following copyright and
+ * permission notice:
+ *
+ * Copyright 2006 Guillaume Nodet
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.jvnet.jax_ws_commons.jaxws;
+
+import java.io.Closeable;
+import java.io.File;
+import java.io.FileFilter;
+import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.net.MalformedURLException;
+import java.net.URI;
+import java.net.URL;
+import java.net.URLClassLoader;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
+import java.util.Enumeration;
+import java.util.Formatter;
+import java.util.List;
+import java.util.Set;
+import java.util.jar.JarEntry;
+import java.util.jar.JarFile;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import org.apache.maven.artifact.Artifact;
+import org.apache.maven.plugin.MojoExecutionException;
+import org.apache.maven.plugins.annotations.Parameter;
+import org.apache.maven.settings.Proxy;
+import org.apache.maven.settings.Settings;
+
+/**
+ * 
+ * @author gnodet &lt;gnodet@apache.org&gt;
+ * @author dantran &lt;dantran@apache.org&gt;
+ * @version $Id: WsImportMojo.java 3169 2007-01-22 02:51:29Z dantran $
+ */
+<span class="nc" id="L74">abstract class WsImportMojo extends AbstractJaxwsMojo</span>
+{
+
+    private static final String STALE_FILE_PREFIX = &quot;.&quot;;
+
+    private static final String PATTERN = &quot;[^\\s]+\\.wsdl$&quot;;
+
+    /**
+     * The package in which the source files will be generated.
+     */
+    @Parameter
+    private String packageName;
+
+    /**
+     * Catalog file to resolve external entity references support TR9401, 
+     * XCatalog, and OASIS XML Catalog format.
+     */
+    @Parameter
+    private File catalog;
+
+    /**
+     * Set HTTP/HTTPS proxy. Format is &lt;code&gt;[user[:password]@]proxyHost[:proxyPort]&lt;/code&gt;.
+     */
+    @Parameter
+    private String httpproxy;
+
+    /**
+     * Directory containing WSDL files.
+     */
+    @Parameter(defaultValue = &quot;${basedir}/src/wsdl&quot;)
+    private File wsdlDirectory;
+
+    /**
+     * List of files to use for WSDLs. If not specified, all &lt;code&gt;.wsdl&lt;/code&gt;
+     * files in the &lt;code&gt;wsdlDirectory&lt;/code&gt; will be used.
+     */
+    @Parameter
+    protected List&lt;String&gt; wsdlFiles;
+
+    /**
+     * List of external WSDL URLs to be compiled.
+     */
+    @Parameter
+    private List&lt;?&gt; wsdlUrls;
+
+    /**
+     * Directory containing binding files.
+     */
+    @Parameter(defaultValue = &quot;${basedir}/src/jaxws&quot;)
+    protected File bindingDirectory;
+
+    /**
+     * List of files to use for bindings. If not specified, all &lt;code&gt;.xml&lt;/code&gt;
+     * files in the &lt;code&gt;bindingDirectory&lt;/code&gt; will be used.
+     */
+    @Parameter
+    protected List&lt;String&gt; bindingFiles;
+
+    /**
+     * &amp;#64;WebService.wsdlLocation and &amp;#64;WebServiceClient.wsdlLocation value.
+     * 
+     * &lt;p&gt;
+     * Can end with asterisk in which case relative path of the WSDL will
+     * be appended to the given &lt;code&gt;wsdlLocation&lt;/code&gt;.
+     * &lt;/p&gt;
+     *
+     * &lt;p&gt;Example:
+     * &lt;pre&gt;
+     *  ...
+     *  &amp;lt;configuration&gt;
+     *      &amp;lt;wsdlDirectory&gt;src/mywsdls&amp;lt;/wsdlDirectory&gt;
+     *      &amp;lt;wsdlFiles&gt;
+     *          &amp;lt;wsdlFile&gt;a.wsdl&amp;lt;/wsdlFile&gt;
+     *          &amp;lt;wsdlFile&gt;b/b.wsdl&amp;lt;/wsdlFile&gt;
+     *          &amp;lt;wsdlFile&gt;${basedir}/src/mywsdls/c.wsdl&amp;lt;/wsdlFile&gt;
+     *      &amp;lt;/wsdlFiles&gt;
+     *      &amp;lt;wsdlLocation&gt;http://example.com/mywebservices/*&amp;lt;/wsdlLocation&gt;
+     *  &amp;lt;/configuration&gt;
+     *  ...
+     * &lt;/pre&gt;
+     * wsdlLocation for &lt;code&gt;a.wsdl&lt;/code&gt; will be http://example.com/mywebservices/a.wsdl&lt;br/&gt;
+     * wsdlLocation for &lt;code&gt;b/b.wsdl&lt;/code&gt; will be http://example.com/mywebservices/b/b.wsdl&lt;br/&gt;
+     * wsdlLocation for &lt;code&gt;${basedir}/src/mywsdls/c.wsdl&lt;/code&gt; will be file://absolute/path/to/c.wsdl
+     * &lt;/p&gt;
+     *
+     * &lt;p&gt;
+     * Note: External binding files cannot be used if asterisk notation is in place.
+     * &lt;/p&gt;
+     */
+    @Parameter
+    private String wsdlLocation;
+
+    /**
+     * Generate code as per the given JAXWS specification version.
+     * Setting &quot;2.0&quot; will cause JAX-WS to generate artifacts
+     * that run with JAX-WS 2.0 runtime.
+     */
+    @Parameter
+    private String target;
+
+    /**
+     * Suppress wsimport output.
+     */
+    @Parameter(defaultValue = &quot;false&quot;)
+    private boolean quiet;
+
+    /**
+     * Local portion of service name for generated JWS implementation.
+     * Implies &lt;code&gt;genJWS=true&lt;/code&gt;.
+     *
+     * Note: It is a QName string, formatted as: &quot;{&quot; + Namespace URI + &quot;}&quot; + local part
+     */
+    @Parameter
+    private String implServiceName;
+
+    /**
+     * Local portion of port name for generated JWS implementation.
+     * Implies &lt;code&gt;genJWS=true&lt;/code&gt;.
+     *
+     * Note: It is a QName string, formatted as: &quot;{&quot; + Namespace URI + &quot;}&quot; + local part
+     */
+    @Parameter
+    private String implPortName;
+
+    /**
+     * Generate stubbed JWS implementation file.
+     */
+    @Parameter(defaultValue = &quot;false&quot;)
+    private boolean genJWS;
+
+    /**
+     * Turn off compilation after code generation and let generated sources be
+     * compiled by maven during compilation phase; keep is turned on with this option.
+     */
+    @Parameter(defaultValue = &quot;true&quot;)
+    private boolean xnocompile;
+
+    /**
+     * Maps headers not bound to the request or response messages to Java method parameters.
+     */
+    @Parameter(defaultValue = &quot;false&quot;)
+    private boolean xadditionalHeaders;
+
+    /**
+     * Turn on debug message.
+     */
+    @Parameter(defaultValue = &quot;false&quot;)
+    private boolean xdebug;
+
+    /**
+     * Binding W3C EndpointReferenceType to Java. By default WsImport follows spec and does not bind
+     * EndpointReferenceType to Java and uses the spec provided {@link javax.xml.ws.wsaddressing.W3CEndpointReference}
+     */
+    @Parameter(defaultValue = &quot;false&quot;)
+    private boolean xnoAddressingDataBinding;
+
+    /**
+     * Specify the location of authorization file.
+     */
+    @Parameter
+    protected File xauthFile;
+
+    /**
+     * Disable the SSL Hostname verification while fetching WSDL(s).
+     */
+    @Parameter(defaultValue = &quot;false&quot;)
+    private boolean xdisableSSLHostnameVerification;
+
+    /**
+     */
+    @Parameter(defaultValue = &quot;false&quot;)
+    private boolean xuseBaseResourceAndURLToLoadWSDL;
+
+    /**
+     * Disable Authenticator used by JAX-WS RI, &lt;code&gt;xauthfile&lt;/code&gt; will be ignored if set.
+     */
+    @Parameter(defaultValue = &quot;false&quot;)
+    private boolean xdisableAuthenticator;
+
+    /**
+     * Specify optional XJC-specific parameters that should simply be passed to &lt;code&gt;xjc&lt;/code&gt;
+     * using &lt;code&gt;-B&lt;/code&gt; option of WsImport command.
+     * &lt;p&gt;
+     * Multiple elements can be specified, and each token must be placed in its own list.
+     * &lt;/p&gt;
+     */
+    @Parameter
+    private List&lt;String&gt; xjcArgs;
+
+    /**
+     * The folder containing flag files used to determine if the output is stale.
+     */
+    @Parameter(defaultValue = &quot;${project.build.directory}/jaxws/stale&quot;)
+    private File staleFile;
+
+    /**
+     */
+    @Parameter(property = &quot;settings&quot;, readonly = true)
+    private Settings settings;
+
+    protected abstract File getImplDestDir();
+
+    /**
+     * {@inheritDoc}
+     */
+    public void execute() throws MojoExecutionException {
+        try {
+<span class="nc" id="L281">            URL[] wsdls = getWSDLFiles();</span>
+<span class="nc bnc" id="L282" title="All 6 branches missed.">            if (wsdls.length == 0 &amp;&amp; (wsdlUrls == null || wsdlUrls.isEmpty())) {</span>
+<span class="nc" id="L283">                getLog().info(&quot;No WSDLs are found to process, Specify atleast one of the following parameters: wsdlFiles, wsdlDirectory or wsdlUrls.&quot;);</span>
+<span class="nc" id="L284">                return;</span>
+            }
+<span class="nc" id="L286">            this.processWsdlViaUrls();</span>
+<span class="nc" id="L287">            this.processLocalWsdlFiles(wsdls);</span>
+<span class="nc" id="L288">        } catch (MojoExecutionException e) {</span>
+<span class="nc" id="L289">            throw e;</span>
+<span class="nc" id="L290">        } catch (IOException e) {</span>
+<span class="nc" id="L291">            throw new MojoExecutionException(e.getMessage(), e);</span>
+        }
+<span class="nc" id="L293">    }</span>
+
+    @Override
+    protected String getMain() {
+<span class="nc" id="L297">        return &quot;com.sun.tools.ws.wscompile.WsimportTool&quot;;</span>
+    }
+
+    @Override
+    protected boolean isXnocompile() {
+<span class="nc" id="L302">        return xnocompile;</span>
+    }
+
+    /**
+     * 
+     * @throws MojoExecutionException
+     * @throws IOException
+     */
+    private void processLocalWsdlFiles(URL[] wsdls)
+            throws MojoExecutionException, IOException {
+<span class="nc bnc" id="L312" title="All 2 branches missed.">        for (URL u : wsdls) {</span>
+<span class="nc" id="L313">            String url = u.toExternalForm();</span>
+<span class="nc bnc" id="L314" title="All 2 branches missed.">            if (isOutputStale(url)) {</span>
+<span class="nc" id="L315">                getLog().info(&quot;Processing: &quot; + url);</span>
+<span class="nc" id="L316">                String relPath = null;</span>
+<span class="nc bnc" id="L317" title="All 2 branches missed.">                if (&quot;file&quot;.equals(u.getProtocol())) {</span>
+<span class="nc" id="L318">                    relPath = getRelativePath(new File(u.getPath()));</span>
+                }
+<span class="nc" id="L320">                ArrayList&lt;String&gt; args = getWsImportArgs(relPath);</span>
+<span class="nc" id="L321">                args.add(&quot;\&quot;&quot; + url + &quot;\&quot;&quot;);</span>
+<span class="nc" id="L322">                getLog().info(&quot;jaxws:wsimport args: &quot; + args);</span>
+<span class="nc" id="L323">                exec(args);</span>
+<span class="nc" id="L324">                touchStaleFile(url);</span>
+<span class="nc" id="L325">            } else {</span>
+<span class="nc" id="L326">                getLog().info(&quot;Ignoring: &quot; + url);</span>
+            }
+            //http://java.net/jira/browse/JAX_WS_COMMONS-95
+<span class="nc" id="L329">            addSourceRoot(getSourceDestDir().getAbsolutePath());</span>
+        }
+<span class="nc" id="L331">    }</span>
+
+    /**
+     * process external wsdl
+     * @throws MojoExecutionException
+     */
+    private void processWsdlViaUrls()
+            throws MojoExecutionException, IOException {
+<span class="nc bnc" id="L339" title="All 4 branches missed.">        for (int i = 0; wsdlUrls != null &amp;&amp; i &lt; wsdlUrls.size(); i++) {</span>
+<span class="nc" id="L340">            String wsdlUrl = wsdlUrls.get(i).toString();</span>
+<span class="nc bnc" id="L341" title="All 2 branches missed.">            if (isOutputStale(wsdlUrl)) {</span>
+<span class="nc" id="L342">                getLog().info(&quot;Processing: &quot; + wsdlUrl);</span>
+<span class="nc" id="L343">                ArrayList&lt;String&gt; args = getWsImportArgs(null);</span>
+<span class="nc" id="L344">                args.add(&quot;\&quot;&quot; + wsdlUrl + &quot;\&quot;&quot;);</span>
+<span class="nc" id="L345">                getLog().info(&quot;jaxws:wsimport args: &quot; + args);</span>
+<span class="nc" id="L346">                exec(args);</span>
+<span class="nc" id="L347">                touchStaleFile(wsdlUrl);</span>
+            }
+            //http://java.net/jira/browse/JAX_WS_COMMONS-95
+<span class="nc" id="L350">            addSourceRoot(getSourceDestDir().getAbsolutePath());</span>
+        }
+<span class="nc" id="L352">    }</span>
+
+    /**
+     * 
+     * @return wsimport's command arguments
+     * @throws MojoExecutionException
+     */
+    private ArrayList&lt;String&gt; getWsImportArgs(String relativePath)
+            throws MojoExecutionException {
+<span class="nc" id="L361">        ArrayList&lt;String&gt; args = new ArrayList&lt;String&gt;();</span>
+<span class="nc" id="L362">        args.addAll(getCommonArgs());</span>
+
+<span class="nc bnc" id="L364" title="All 2 branches missed.">        if ( httpproxy != null )</span>
+        {
+<span class="nc" id="L366">            args.add( &quot;-httpproxy:&quot; + httpproxy);</span>
+<span class="nc" id="L367">        }</span>
+<span class="nc bnc" id="L368" title="All 2 branches missed.">        else if (settings != null)</span>
+        {
+<span class="nc" id="L370">            String proxyString = getActiveHttpProxy(settings);</span>
+<span class="nc bnc" id="L371" title="All 2 branches missed.">            if (proxyString != null)</span>
+            {
+<span class="nc" id="L373">                args.add( &quot;-httpproxy:&quot; + proxyString);</span>
+            }
+        }
+
+<span class="nc bnc" id="L377" title="All 2 branches missed.">        if ( packageName != null )</span>
+        {
+<span class="nc" id="L379">            args.add( &quot;-p&quot; );</span>
+<span class="nc" id="L380">            args.add( packageName );</span>
+        }
+
+<span class="nc bnc" id="L383" title="All 2 branches missed.">        if (catalog != null) {</span>
+<span class="nc" id="L384">            args.add(&quot;-catalog&quot;);</span>
+<span class="nc" id="L385">            args.add(&quot;'&quot; + catalog.getAbsolutePath() + &quot;'&quot;);</span>
+        }
+
+<span class="nc bnc" id="L388" title="All 2 branches missed.">        if ( wsdlLocation != null )</span>
+        {
+<span class="nc bnc" id="L390" title="All 2 branches missed.">            if (relativePath != null) {</span>
+<span class="nc" id="L391">                args.add(&quot;-wsdllocation&quot;);</span>
+<span class="nc" id="L392">                args.add(wsdlLocation.replaceAll(&quot;\\*&quot;, relativePath));</span>
+<span class="nc bnc" id="L393" title="All 2 branches missed.">            } else if (!wsdlLocation.contains(&quot;*&quot;)) {</span>
+<span class="nc" id="L394">                args.add( &quot;-wsdllocation&quot; );</span>
+<span class="nc" id="L395">                args.add(wsdlLocation);</span>
+            }
+        }
+
+<span class="nc bnc" id="L399" title="All 2 branches missed.">        if ( target != null )</span>
+        {
+<span class="nc" id="L401">            args.add( &quot;-target&quot; );</span>
+<span class="nc" id="L402">            args.add( target );</span>
+        }
+
+<span class="nc bnc" id="L405" title="All 2 branches missed.">        if (quiet) {</span>
+<span class="nc" id="L406">            args.add(&quot;-quiet&quot;);</span>
+        }
+
+<span class="nc bnc" id="L409" title="All 6 branches missed.">        if ((genJWS || implServiceName != null || implPortName != null)</span>
+<span class="nc bnc" id="L410" title="All 2 branches missed.">                &amp;&amp; isArgSupported(&quot;-generateJWS&quot;)) {</span>
+<span class="nc" id="L411">            args.add(&quot;-generateJWS&quot;);</span>
+<span class="nc bnc" id="L412" title="All 4 branches missed.">            if (implServiceName != null &amp;&amp; isArgSupported(&quot;-implServiceName&quot;)) {</span>
+<span class="nc" id="L413">                args.add(&quot;-implServiceName&quot;);</span>
+<span class="nc" id="L414">                args.add(implServiceName);</span>
+            }
+<span class="nc bnc" id="L416" title="All 4 branches missed.">            if (implPortName != null &amp;&amp; isArgSupported(&quot;-implPortName&quot;)) {</span>
+<span class="nc" id="L417">                args.add(&quot;-implPortName&quot;);</span>
+<span class="nc" id="L418">                args.add(implPortName);</span>
+            }
+<span class="nc" id="L420">            File implDestDir = getImplDestDir();</span>
+<span class="nc bnc" id="L421" title="All 4 branches missed.">            if (!implDestDir.mkdirs() &amp;&amp; !implDestDir.exists()) {</span>
+<span class="nc" id="L422">                getLog().warn(&quot;Cannot create directory: &quot; + implDestDir.getAbsolutePath());</span>
+            }
+<span class="nc" id="L424">            args.add(&quot;-implDestDir&quot;);</span>
+<span class="nc" id="L425">            args.add(&quot;'&quot; + implDestDir.getAbsolutePath() + &quot;'&quot;);</span>
+<span class="nc bnc" id="L426" title="All 2 branches missed.">            if (!project.getCompileSourceRoots().contains(implDestDir.getAbsolutePath())) {</span>
+<span class="nc" id="L427">                project.addCompileSourceRoot(implDestDir.getAbsolutePath());</span>
+            }
+        }
+
+<span class="nc bnc" id="L431" title="All 2 branches missed.">        if(xdebug){</span>
+<span class="nc" id="L432">            args.add(&quot;-Xdebug&quot;);</span>
+        }
+
+        /**
+         * -Xno-addressing-databinding enable binding of W3C EndpointReferenceType to Java
+         */
+<span class="nc bnc" id="L438" title="All 2 branches missed.">        if(xnoAddressingDataBinding){</span>
+<span class="nc" id="L439">            args.add(&quot;-Xno-addressing-databinding&quot;);</span>
+        }
+
+<span class="nc bnc" id="L442" title="All 2 branches missed.">        if(xadditionalHeaders){</span>
+<span class="nc" id="L443">            args.add(&quot;-XadditionalHeaders&quot;);</span>
+        }
+
+<span class="nc bnc" id="L446" title="All 2 branches missed.">        if(xauthFile != null){</span>
+<span class="nc" id="L447">            args.add(&quot;-Xauthfile&quot;);</span>
+<span class="nc" id="L448">            args.add(xauthFile.getAbsolutePath());</span>
+        }
+
+<span class="nc bnc" id="L451" title="All 2 branches missed.">        if (xdisableSSLHostnameVerification) {</span>
+<span class="nc" id="L452">            args.add(&quot;-XdisableSSLHostnameVerification&quot;);</span>
+        }
+<span class="nc bnc" id="L454" title="All 2 branches missed.">        if (xuseBaseResourceAndURLToLoadWSDL) {</span>
+<span class="nc" id="L455">            args.add(&quot;-XuseBaseResourceAndURLToLoadWSDL&quot;);</span>
+        }
+<span class="nc bnc" id="L457" title="All 4 branches missed.">        if (xdisableAuthenticator &amp;&amp; isArgSupported(&quot;-XdisableAuthenticator&quot;)) {</span>
+<span class="nc" id="L458">            args.add(&quot;-XdisableAuthenticator&quot;);</span>
+        }
+
+        // xjcOIptions
+<span class="nc bnc" id="L462" title="All 2 branches missed.">        if (xjcArgs != null) </span>
+        {
+<span class="nc bnc" id="L464" title="All 2 branches missed.">            for (String xjcArg : xjcArgs) {</span>
+<span class="nc bnc" id="L465" title="All 2 branches missed.">                if (xjcArg.startsWith(&quot;-&quot;))</span>
+<span class="nc" id="L466">                    args.add(&quot;-B&quot; + xjcArg);</span>
+                else
+<span class="nc" id="L468">                    args.add(xjcArg);</span>
+            }
+        }
+
+        // Bindings
+<span class="nc" id="L473">        File[] bindings = getBindingFiles();</span>
+
+<span class="nc bnc" id="L475" title="All 6 branches missed.">        if (bindings.length &gt; 0 &amp;&amp; wsdlLocation != null &amp;&amp; wsdlLocation.contains(&quot;*&quot;)) {</span>
+<span class="nc" id="L476">            throw new MojoExecutionException(&quot;External binding file(s) can not be bound to more WSDL files (&quot; + wsdlLocation + &quot;)\n&quot;</span>
+<span class="nc" id="L477">                    + &quot;Please use either inline binding(s) or multiple execution tags.&quot;);</span>
+        }
+
+<span class="nc bnc" id="L480" title="All 2 branches missed.">        for (File binding : bindings) {</span>
+<span class="nc" id="L481">            args.add(&quot;-b&quot;);</span>
+<span class="nc" id="L482">            args.add(&quot;'&quot; + binding.getAbsolutePath() + &quot;'&quot;);</span>
+        }
+
+<span class="nc" id="L485">        getLog().debug( &quot;jaxws:wsimport args: &quot; + args );</span>
+
+<span class="nc" id="L487">        return args;</span>
+    }
+
+    /**
+     * Returns a file array of xml files to translate to object models.
+     * 
+     * @return An array of schema files to be parsed by the schema compiler.
+     */
+    public final File[] getBindingFiles()
+    {
+        File [] bindings;
+        
+<span class="nc bnc" id="L499" title="All 2 branches missed.">        if ( bindingFiles != null )</span>
+        {
+<span class="nc" id="L501">            bindings = new File[bindingFiles.size()];</span>
+<span class="nc bnc" id="L502" title="All 2 branches missed.">            for ( int i = 0 ; i &lt; bindingFiles.size(); ++i ) </span>
+            {
+<span class="nc" id="L504">                String schemaName = bindingFiles.get(i);</span>
+<span class="nc" id="L505">                File file = new File( schemaName );</span>
+<span class="nc bnc" id="L506" title="All 2 branches missed.">                if (!file.isAbsolute()) {</span>
+<span class="nc" id="L507">                    file = new File( bindingDirectory, schemaName );</span>
+                }
+<span class="nc" id="L509">                bindings[i] = file;</span>
+            }
+<span class="nc" id="L511">        }</span>
+        else
+        {
+<span class="nc" id="L514">            getLog().debug( &quot;The binding Directory is &quot; + bindingDirectory );</span>
+<span class="nc" id="L515">            bindings =  bindingDirectory.listFiles( new XMLFile() );</span>
+<span class="nc bnc" id="L516" title="All 2 branches missed.">            if ( bindings == null )</span>
+            {
+<span class="nc" id="L518">                bindings = new File[0];</span>
+            }
+        }
+<span class="nc" id="L521">        return bindings;</span>
+    }
+
+    /**
+     * Returns a file array of wsdl files to translate to object models.
+     * 
+     * @return An array of schema files to be parsed by the schema compiler.
+     */
+    private URL[] getWSDLFiles() throws MojoExecutionException {
+<span class="nc" id="L530">        List&lt;URL&gt; files = new ArrayList&lt;URL&gt;();</span>
+        @SuppressWarnings(&quot;unchecked&quot;)
+<span class="nc" id="L532">        Set&lt;Artifact&gt; dependencyArtifacts = project.getDependencyArtifacts();</span>
+<span class="nc" id="L533">        List&lt;URL&gt; urlCpath = new ArrayList&lt;URL&gt;(dependencyArtifacts.size());</span>
+<span class="nc bnc" id="L534" title="All 2 branches missed.">        for (Artifact a: dependencyArtifacts) {</span>
+            try {
+<span class="nc bnc" id="L536" title="All 2 branches missed.">                if (a.getFile() != null) {</span>
+<span class="nc" id="L537">                    URL u = a.getFile().toURI().toURL();</span>
+<span class="nc" id="L538">                    urlCpath.add(u);</span>
+<span class="nc" id="L539">                } else {</span>
+<span class="nc" id="L540">                    getLog().warn(&quot;cannot find file for &quot; + a.getGroupId() + &quot;:&quot; + a.getArtifactId() + &quot;:&quot; + a.getVersion() + &quot;:&quot; + a.getScope());</span>
+                }
+<span class="nc" id="L542">            } catch (MalformedURLException ex) {</span>
+<span class="nc" id="L543">                Logger.getLogger(WsImportMojo.class.getName()).log(Level.SEVERE, null, ex);</span>
+            }
+        }
+        // Suppress this warning because it is actually being closed if the type is URLClassLoader
+<span class="nc bnc" id="L547" title="All 2 branches missed.">        ClassLoader loader = urlCpath.isEmpty()</span>
+<span class="nc" id="L548">                ? Thread.currentThread().getContextClassLoader()</span>
+<span class="nc" id="L549">                : new URLClassLoader(urlCpath.toArray(new URL[0]));</span>
+<span class="nc bnc" id="L550" title="All 2 branches missed.">        if (wsdlFiles != null) {</span>
+<span class="nc bnc" id="L551" title="All 2 branches missed.">            for (String wsdlFileName : wsdlFiles) {</span>
+<span class="nc" id="L552">                File wsdl = new File(wsdlFileName);</span>
+<span class="nc" id="L553">                URL toAdd = null;</span>
+<span class="nc bnc" id="L554" title="All 2 branches missed.">                if (!wsdl.isAbsolute()) {</span>
+<span class="nc" id="L555">                    wsdl = new File(wsdlDirectory, wsdlFileName);</span>
+                }
+<span class="nc bnc" id="L557" title="All 2 branches missed.">                if (!wsdl.exists()) {</span>
+<span class="nc" id="L558">                    toAdd = loader.getResource(wsdlFileName);</span>
+<span class="nc" id="L559">                } else {</span>
+                    try {
+<span class="nc" id="L561">                        toAdd = wsdl.toURI().toURL();</span>
+<span class="nc" id="L562">                    } catch (MalformedURLException ex) {</span>
+<span class="nc" id="L563">                        Logger.getLogger(WsImportMojo.class.getName()).log(Level.SEVERE, null, ex);</span>
+                    }
+                }
+<span class="nc" id="L566">                getLog().debug(&quot;The wsdl File is '&quot; + wsdlFileName + &quot;' from '&quot; + toAdd + &quot;'&quot;);</span>
+<span class="nc bnc" id="L567" title="All 2 branches missed.">                if (toAdd != null) {</span>
+<span class="nc" id="L568">                    files.add(toAdd);</span>
+<span class="nc" id="L569">                } else {</span>
+<span class="nc" id="L570">                    throw new MojoExecutionException(&quot;'&quot; + wsdlFileName + &quot;' not found.&quot;);</span>
+                }
+            }
+<span class="nc" id="L573">        } else {</span>
+<span class="nc" id="L574">            getLog().debug( &quot;The wsdl Directory is &quot; + wsdlDirectory );</span>
+<span class="nc bnc" id="L575" title="All 2 branches missed.">            if (wsdlDirectory.exists()) {</span>
+<span class="nc" id="L576">                File[] wsdls = wsdlDirectory.listFiles(new WSDLFile());</span>
+<span class="nc bnc" id="L577" title="All 2 branches missed.">                for (File wsdl:  wsdls) {</span>
+                    try {
+<span class="nc" id="L579">                        files.add(wsdl.toURI().toURL());</span>
+<span class="nc" id="L580">                    } catch (MalformedURLException ex) {</span>
+<span class="nc" id="L581">                        Logger.getLogger(WsImportMojo.class.getName()).log(Level.SEVERE, null, ex);</span>
+                    }
+                }
+<span class="nc" id="L584">            } else {</span>
+<span class="nc" id="L585">                URI rel = project.getBasedir().toURI().relativize(wsdlDirectory.toURI());</span>
+<span class="nc" id="L586">                String dir = rel.getPath();</span>
+<span class="nc" id="L587">                URL u = loader.getResource(dir);</span>
+<span class="nc bnc" id="L588" title="All 2 branches missed.">                if (u == null) {</span>
+<span class="nc" id="L589">                    dir = &quot;WEB-INF/wsdl/&quot;;</span>
+<span class="nc" id="L590">                    u = loader.getResource(dir);</span>
+                }
+<span class="nc bnc" id="L592" title="All 2 branches missed.">                if (u == null) {</span>
+<span class="nc" id="L593">                    dir = &quot;META-INF/wsdl/&quot;;</span>
+<span class="nc" id="L594">                    u = loader.getResource(dir);</span>
+                }
+<span class="nc bnc" id="L596" title="All 4 branches missed.">                if (!(u == null || !&quot;jar&quot;.equalsIgnoreCase(u.getProtocol()))) {</span>
+<span class="nc" id="L597">                    String path = u.getPath();</span>
+                    try {
+<span class="nc" id="L599">                        Pattern p = Pattern.compile(dir.replace(File.separatorChar, '/') + PATTERN, Pattern.CASE_INSENSITIVE);</span>
+<span class="nc" id="L600">                        JarFile jarFile = new JarFile(path.substring(5, path.indexOf(&quot;!/&quot;)));</span>
+<span class="nc" id="L601">                        Enumeration&lt;JarEntry&gt; jes = jarFile.entries();</span>
+<span class="nc bnc" id="L602" title="All 2 branches missed.">                        while (jes.hasMoreElements()) {</span>
+<span class="nc" id="L603">                            JarEntry je = jes.nextElement();</span>
+<span class="nc" id="L604">                            Matcher m = p.matcher(je.getName());</span>
+<span class="nc bnc" id="L605" title="All 2 branches missed.">                            if (m.matches()) {</span>
+<span class="nc" id="L606">                                String s = &quot;jar:&quot; + path.substring(0, path.indexOf(&quot;!/&quot;) + 2) + je.getName();</span>
+<span class="nc" id="L607">                                files.add(new URL(s));</span>
+                            }
+                        }
+<span class="nc" id="L610">                        jarFile.close();</span>
+<span class="nc" id="L611">                    } catch (IOException ex) {</span>
+<span class="nc" id="L612">                        Logger.getLogger(WsImportMojo.class.getName()).log(Level.SEVERE, null, ex);</span>
+                    }
+                }
+            }
+        }
+<span class="nc bnc" id="L617" title="All 2 branches missed.">        if (loader instanceof Closeable) {</span>
+            try {
+<span class="nc" id="L619">                ((Closeable) loader).close();</span>
+<span class="nc" id="L620">            } catch (IOException e) {</span>
+<span class="nc" id="L621">                throw new MojoExecutionException(e.getMessage(), e);</span>
+            }
+        }
+<span class="nc" id="L624">        return files.toArray(new URL[0]);</span>
+    }
+
+    /**
+     * A class used to look up .xml documents from a given directory.
+     */
+<span class="nc" id="L630">    private static final class XMLFile implements FileFilter {</span>
+
+        /**
+         * Returns true if the file ends with an xml extension.
+         *
+         * @param file The filed being reviewed by the filter.
+         * @return true if an xml file.
+         */
+        public boolean accept(final java.io.File file) {
+<span class="nc" id="L639">            return file.getName().endsWith(&quot;.xml&quot;);</span>
+        }
+    }
+
+    /**
+     * A class used to look up .wsdl documents from a given directory.
+     */
+<span class="nc" id="L646">    private static final class WSDLFile implements FileFilter {</span>
+
+        /**
+         * Returns true if the file ends with a wsdl extension.
+         *
+         * @param file The filed being reviewed by the filter.
+         * @return true if an wsdl file.
+         */
+        public boolean accept(final java.io.File file) {
+<span class="nc" id="L655">            return file.getName().endsWith(&quot;.wsdl&quot;);</span>
+        }
+
+    }
+
+    private String getRelativePath(File f) {
+<span class="nc bnc" id="L661" title="All 2 branches missed.">        if (wsdlFiles != null) {</span>
+<span class="nc bnc" id="L662" title="All 2 branches missed.">            for (String s : wsdlFiles) {</span>
+<span class="nc" id="L663">                String path = f.getPath().replace(File.separatorChar, '/');</span>
+<span class="nc bnc" id="L664" title="All 4 branches missed.">                if (path.endsWith(s) &amp;&amp; path.length() != s.length()) {</span>
+<span class="nc" id="L665">                    return s;</span>
+                }
+            }
+        }
+<span class="nc" id="L669">        return null;</span>
+    }
+
+    /**
+     * Returns true if given WSDL resource or any binding file is newer
+     * than the &lt;code&gt;staleFlag&lt;/code&gt; file.
+     * 
+     * @return True if wsdl files have been modified since the last build.
+     */
+    private boolean isOutputStale(String resource) {
+<span class="nc" id="L679">        File[] sourceBindings = getBindingFiles();</span>
+<span class="nc" id="L680">        File stFile = new File(staleFile, STALE_FILE_PREFIX + getHash(resource));</span>
+<span class="nc bnc" id="L681" title="All 2 branches missed.">        boolean stale = !stFile.exists();</span>
+<span class="nc bnc" id="L682" title="All 2 branches missed.">        if (!stale) {</span>
+<span class="nc" id="L683">            getLog().debug(&quot;Stale flag file exists, comparing to wsdls and bindings.&quot;);</span>
+<span class="nc" id="L684">            long staleMod = stFile.lastModified();</span>
+
+            try {
+                //resource can be URL
+<span class="nc" id="L688">                URL sourceWsdl = new URL(resource);</span>
+<span class="nc bnc" id="L689" title="All 2 branches missed.">                if (sourceWsdl.openConnection().getLastModified() &gt; staleMod) {</span>
+<span class="nc" id="L690">                    getLog().debug(resource + &quot; is newer than the stale flag file.&quot;);</span>
+<span class="nc" id="L691">                    stale = true;</span>
+                }
+<span class="nc" id="L693">            } catch (MalformedURLException mue) {</span>
+                //or a file
+<span class="nc" id="L695">                File sourceWsdl = new File(resource);</span>
+<span class="nc bnc" id="L696" title="All 2 branches missed.">                if (sourceWsdl.lastModified() &gt; staleMod) {</span>
+<span class="nc" id="L697">                    getLog().debug(resource + &quot; is newer than the stale flag file.&quot;);</span>
+<span class="nc" id="L698">                    stale = true;</span>
+                }
+<span class="nc" id="L700">            } catch (IOException ioe) {</span>
+                //possible error while openning connection
+<span class="nc" id="L702">                getLog().error(ioe);</span>
+            }
+
+<span class="nc bnc" id="L705" title="All 2 branches missed.">            for (File sourceBinding : sourceBindings) {</span>
+<span class="nc bnc" id="L706" title="All 2 branches missed.">                if (sourceBinding.lastModified() &gt; staleMod) {</span>
+<span class="nc" id="L707">                    getLog().debug(sourceBinding.getName() + &quot; is newer than the stale flag file.&quot;);</span>
+<span class="nc" id="L708">                    stale = true;</span>
+                }
+            }
+        }
+<span class="nc" id="L712">        return stale;</span>
+    }
+
+    private void touchStaleFile(String resource) throws IOException {
+<span class="nc" id="L716">        File stFile = new File(staleFile, STALE_FILE_PREFIX + getHash(resource));</span>
+<span class="nc bnc" id="L717" title="All 2 branches missed.">        if (!stFile.exists()) {</span>
+<span class="nc" id="L718">            File staleDir = stFile.getParentFile();</span>
+<span class="nc bnc" id="L719" title="All 4 branches missed.">            if (!staleDir.mkdirs() &amp;&amp; !staleDir.exists()) {</span>
+<span class="nc" id="L720">                getLog().warn(&quot;Cannot create directory: &quot; + staleDir.getAbsolutePath());</span>
+            }
+<span class="nc bnc" id="L722" title="All 2 branches missed.">            if (!stFile.createNewFile()) {</span>
+<span class="nc" id="L723">                getLog().warn(&quot;Cannot create file: &quot; + stFile.getAbsolutePath());</span>
+            }
+<span class="nc" id="L725">            getLog().debug(&quot;Stale flag file created.[&quot; + stFile.getAbsolutePath() + &quot;]&quot;);</span>
+<span class="nc" id="L726">        } else {</span>
+<span class="nc bnc" id="L727" title="All 2 branches missed.">            if (!stFile.setLastModified(System.currentTimeMillis())) {</span>
+<span class="nc" id="L728">                getLog().warn(&quot;Stale file has not been updated!&quot;);</span>
+            }
+        }
+<span class="nc" id="L731">    }</span>
+
+    private String getHash(String s) {
+<span class="nc" id="L734">        Formatter formatter = new Formatter();</span>
+        try {
+<span class="nc" id="L736">            MessageDigest md = MessageDigest.getInstance(&quot;SHA&quot;);</span>
+<span class="nc bnc" id="L737" title="All 2 branches missed.">            for (byte b : md.digest(s.getBytes(&quot;UTF-8&quot;))) {</span>
+<span class="nc" id="L738">                formatter.format(&quot;%02x&quot;, b);</span>
+            }
+<span class="nc" id="L740">            return formatter.toString();</span>
+<span class="nc" id="L741">        } catch (UnsupportedEncodingException ex) {</span>
+<span class="nc" id="L742">            getLog().debug(ex.getMessage(), ex);</span>
+<span class="nc" id="L743">        } catch (NoSuchAlgorithmException ex) {</span>
+<span class="nc" id="L744">            getLog().debug(ex.getMessage(), ex);</span>
+<span class="nc" id="L745">        } finally {</span>
+<span class="nc" id="L746">            formatter.close();</span>
+<span class="nc" id="L747">        }</span>
+        //fallback to some default
+<span class="nc" id="L749">        getLog().warn(&quot;Could not compute hash for &quot; + s + &quot;. Using fallback method.&quot;);</span>
+<span class="nc" id="L750">        return s.substring(s.lastIndexOf('/')).replaceAll(&quot;\\.&quot;, &quot;-&quot;);</span>
+    }
+
+    /**
+     * 
+     * @return proxy string as [user[:password]@]proxyHost[:proxyPort] or null
+     */
+    static String getActiveHttpProxy(Settings s) {
+<span class="fc" id="L758">        String retVal = null;</span>
+<span class="fc bfc" id="L759" title="All 2 branches covered.">        for (Proxy p : s.getProxies()) {</span>
+<span class="fc bfc" id="L760" title="All 4 branches covered.">            if (p.isActive() &amp;&amp; &quot;http&quot;.equals(p.getProtocol())) {</span>
+<span class="fc" id="L761">                StringBuilder sb = new StringBuilder();</span>
+<span class="fc" id="L762">                String user = p.getUsername();</span>
+<span class="fc" id="L763">                String pwd = p.getPassword();</span>
+<span class="fc bfc" id="L764" title="All 2 branches covered.">                if (user != null) {</span>
+<span class="fc" id="L765">                    sb.append(user);</span>
+<span class="fc bfc" id="L766" title="All 2 branches covered.">                    if (pwd != null) {</span>
+<span class="fc" id="L767">                        sb.append(&quot;:&quot;);</span>
+<span class="fc" id="L768">                        sb.append(pwd);</span>
+                    }
+<span class="fc" id="L770">                    sb.append(&quot;@&quot;);</span>
+                }
+<span class="fc" id="L772">                sb.append(p.getHost());</span>
+<span class="fc" id="L773">                sb.append(&quot;:&quot;);</span>
+<span class="fc" id="L774">                sb.append(p.getPort());</span>
+<span class="fc" id="L775">                retVal = sb.toString().trim();</span>
+<span class="fc" id="L776">                break;</span>
+            }
+        }
+<span class="fc" id="L779">        return retVal;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.0.201403182114</span></div></body></html>

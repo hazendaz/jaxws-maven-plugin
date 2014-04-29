@@ -1,0 +1,290 @@
+<?xml version="1.0" encoding="utf-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>AbstractWsGenMojo.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Maven JAXWS 2.x Plugin</a> &gt; <a href="index.source.html" class="el_package">org.jvnet.jax_ws_commons.jaxws</a> &gt; <span class="el_source">AbstractWsGenMojo.java</span></div><h1>AbstractWsGenMojo.java</h1><pre class="source lang-java linenums">/*
+ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
+ *
+ * Copyright (c) 2012-2013 Oracle and/or its affiliates. All rights reserved.
+ *
+ * Oracle licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * 
+ * This file incorporates work covered by the following copyright and
+ * permission notice:
+ *
+ * Copyright 2006 Guillaume Nodet
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.jvnet.jax_ws_commons.jaxws;
+
+import java.io.Closeable;
+import java.io.File;
+import java.io.IOException;
+import java.net.URL;
+import java.net.URLClassLoader;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Set;
+
+import javax.jws.WebService;
+
+import org.apache.maven.artifact.Artifact;
+import org.apache.maven.model.Resource;
+import org.apache.maven.plugin.MojoExecutionException;
+import org.apache.maven.plugin.MojoFailureException;
+import org.apache.maven.plugins.annotations.Parameter;
+import org.codehaus.plexus.util.FileUtils;
+
+/**
+ * 
+ *
+ * @author gnodet &lt;gnodet@apache.org&gt;
+ * @author dantran &lt;dantran@apache.org&gt;
+ * @version $Id: WsGenMojo.java 3169 2007-01-22 02:51:29Z dantran $
+ */
+<span class="nc" id="L64">abstract class AbstractWsGenMojo extends AbstractJaxwsMojo {</span>
+
+    /**
+     * Specify that a WSDL file should be generated in &lt;code&gt;${resourceDestDir}&lt;/code&gt;.
+     */
+    @Parameter(defaultValue = &quot;false&quot;)
+    protected boolean genWsdl;
+
+    /**
+     * Service endpoint implementation class name.
+     */
+    @Parameter
+    private String sei;
+
+    /**
+     * Used in conjunction with &lt;code&gt;genWsdl&lt;code&gt; to specify the protocol to use in the
+     * &lt;code&gt;wsdl:binding&lt;/code&gt;. Valid values are &quot;&lt;code&gt;soap1.1&lt;/code&gt;&quot; or &quot;&lt;code&gt;Xsoap1.2&lt;/code&gt;&quot;,
+     * default is &quot;&lt;code&gt;soap1.1&lt;/code&gt;&quot;. &quot;&lt;code&gt;Xsoap1.2&lt;/code&gt;&quot; is not standard
+     * and can only be used in conjunction with the &lt;code&gt;extension&lt;/code&gt; option.
+     */
+    @Parameter
+    private String protocol;
+
+    /**
+     * Specify the Service name to use in the generated WSDL.
+     * Used in conjunction with the &lt;code&gt;genWsdl&lt;/code&gt; option.
+     */
+    @Parameter
+    private String servicename;
+
+    /**
+     * Specify the Port name to use in the generated WSDL.
+     * Used in conjunction with the &lt;code&gt;genWsdl&lt;/code&gt; option.
+     */
+    @Parameter
+    private String portname;
+
+    /**
+     * Inline schemas in the generated WSDL.
+     * Used in conjunction with the &lt;code&gt;genWsdl&lt;/code&gt; option.
+     */
+    @Parameter(defaultValue = &quot;false&quot;)
+    private boolean inlineSchemas;
+
+    /**
+     * Turn off compilation after code generation and let generated sources be
+     * compiled by maven during compilation phase; keep is turned on with this option.
+     */
+    @Parameter(defaultValue = &quot;false&quot;)
+    private boolean xnocompile;
+
+    /**
+     */
+    @Parameter(defaultValue = &quot;false&quot;)
+    private boolean xdonotoverwrite;
+
+    /**
+     * Metadata file for wsgen. See &lt;a href=&quot;https://jax-ws.java.net/2.2.8/docs/ch03.html#users-guide-external-metadata&quot;&gt;the JAX-WS Guide&lt;/a&gt;
+     * for the description of this feature.
+     * Unmatched files will be ignored.
+     *
+     * @since 2.3
+     * @see &lt;a href=&quot;https://jax-ws.java.net/2.2.8/docs/ch03.html#users-guide-external-metadata&quot;&gt;External Web Service Metadata&lt;/a&gt;
+     */
+    @Parameter
+    private File metadata;
+
+    protected abstract File getResourceDestDir();
+
+    protected abstract File getClassesDir();
+
+    /**
+     * {@inheritDoc}
+     */
+    public void execute() throws MojoExecutionException, MojoFailureException {
+<span class="nc" id="L139">        Set&lt;String&gt; seis = new HashSet&lt;String&gt;();</span>
+<span class="nc bnc" id="L140" title="All 2 branches missed.">        if (sei != null) {</span>
+<span class="nc" id="L141">            seis.add(sei);</span>
+<span class="nc" id="L142">        } else {</span>
+            //find all SEIs within current classes
+<span class="nc" id="L144">            seis.addAll(getSEIs(getClassesDir()));</span>
+        }
+<span class="nc bnc" id="L146" title="All 2 branches missed.">        if (seis.isEmpty()) {</span>
+<span class="nc" id="L147">            throw new MojoFailureException(&quot;No @javax.jws.WebService found.&quot;);</span>
+        }
+<span class="nc bnc" id="L149" title="All 2 branches missed.">        for (String aSei : seis) {</span>
+<span class="nc" id="L150">            processSei(aSei);</span>
+        }
+<span class="nc" id="L152">    }</span>
+
+    protected void processSei(String sei) throws MojoExecutionException {
+<span class="nc" id="L155">        getLog().info(&quot;Processing: &quot; + sei);</span>
+<span class="nc" id="L156">        ArrayList&lt;String&gt; args = getWsGenArgs(sei);</span>
+<span class="nc" id="L157">        getLog().info(&quot;jaxws:wsgen args: &quot; + args);</span>
+<span class="nc" id="L158">        exec(args);</span>
+<span class="nc bnc" id="L159" title="All 2 branches missed.">        if (metadata != null) {</span>
+            try {
+<span class="nc" id="L161">                FileUtils.copyFileToDirectory(metadata, getClassesDir());</span>
+<span class="nc" id="L162">            } catch (IOException ioe) {</span>
+<span class="nc" id="L163">                throw new MojoExecutionException(ioe.getMessage(), ioe);</span>
+            }
+        }
+<span class="nc" id="L166">    }</span>
+
+    @Override
+    protected String getMain() {
+<span class="nc" id="L170">        return &quot;com.sun.tools.ws.wscompile.WsgenTool&quot;;</span>
+    }
+
+    @SuppressWarnings(&quot;unchecked&quot;)
+	@Override
+    protected String getExtraClasspath() {
+<span class="nc" id="L176">        StringBuilder buf = new StringBuilder();</span>
+<span class="nc" id="L177">        buf.append(getClassesDir().getAbsolutePath());</span>
+<span class="nc bnc" id="L178" title="All 2 branches missed.">        for (Artifact a : (Set&lt;Artifact&gt;)project.getArtifacts()) {</span>
+<span class="nc" id="L179">            buf.append(File.pathSeparatorChar);</span>
+<span class="nc" id="L180">            buf.append(a.getFile().getAbsolutePath());</span>
+        }
+<span class="nc" id="L182">        return buf.toString();</span>
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    protected boolean isXnocompile() {
+<span class="nc" id="L190">        return xnocompile;</span>
+    }
+
+    /**
+     * Construct wsgen arguments
+     * @return a list of arguments
+     * @throws MojoExecutionException
+     */
+    private ArrayList&lt;String&gt; getWsGenArgs(String aSei) throws MojoExecutionException {
+<span class="nc" id="L199">        ArrayList&lt;String&gt; args = new ArrayList&lt;String&gt;();</span>
+<span class="nc" id="L200">        args.addAll(getCommonArgs());</span>
+
+<span class="nc bnc" id="L202" title="All 2 branches missed.">        if (this.genWsdl) {</span>
+<span class="nc bnc" id="L203" title="All 2 branches missed.">            if (this.protocol != null) {</span>
+<span class="nc" id="L204">                args.add(&quot;-wsdl:&quot; + this.protocol);</span>
+<span class="nc" id="L205">            } else {</span>
+<span class="nc" id="L206">                args.add(&quot;-wsdl&quot;);</span>
+            }
+
+<span class="nc bnc" id="L209" title="All 2 branches missed.">            if (inlineSchemas) {</span>
+<span class="nc" id="L210">                maybeUnsupportedOption(&quot;-inlineSchemas&quot;, null, args);</span>
+            }
+
+<span class="nc bnc" id="L213" title="All 2 branches missed.">            if (servicename != null) {</span>
+<span class="nc" id="L214">                args.add(&quot;-servicename&quot;);</span>
+<span class="nc" id="L215">                args.add(servicename);</span>
+            }
+
+<span class="nc bnc" id="L218" title="All 2 branches missed.">            if (portname != null) {</span>
+<span class="nc" id="L219">                args.add(&quot;-portname&quot;);</span>
+<span class="nc" id="L220">                args.add(portname);</span>
+            }
+
+<span class="nc" id="L223">            File resourceDir = getResourceDestDir();</span>
+<span class="nc bnc" id="L224" title="All 4 branches missed.">            if (!resourceDir.mkdirs() &amp;&amp; !resourceDir.exists()) {</span>
+<span class="nc" id="L225">                getLog().warn(&quot;Cannot create directory: &quot; + resourceDir.getAbsolutePath());</span>
+            }
+<span class="nc" id="L227">            args.add(&quot;-r&quot;);</span>
+<span class="nc" id="L228">            args.add(&quot;'&quot; + resourceDir.getAbsolutePath() + &quot;'&quot;);</span>
+<span class="nc bnc" id="L229" title="All 2 branches missed.">            if (!&quot;war&quot;.equals(project.getPackaging())) {</span>
+<span class="nc" id="L230">                Resource r = new Resource();</span>
+<span class="nc" id="L231">                r.setDirectory(getRelativePath(project.getBasedir(), getResourceDestDir()));</span>
+<span class="nc" id="L232">                project.addResource(r);</span>
+            }
+        }
+
+<span class="nc bnc" id="L236" title="All 2 branches missed.">        if (xdonotoverwrite) {</span>
+<span class="nc" id="L237">            args.add(&quot;-Xdonotoverwrite&quot;);</span>
+        }
+
+<span class="nc bnc" id="L240" title="All 4 branches missed.">        if (metadata != null &amp;&amp; isArgSupported(&quot;-x&quot;)) {</span>
+<span class="nc" id="L241">            maybeUnsupportedOption(&quot;-x&quot;, &quot;'&quot; + metadata.getAbsolutePath() + &quot;'&quot;, args);</span>
+        }
+
+<span class="nc" id="L244">        args.add(aSei);</span>
+
+<span class="nc" id="L246">        getLog().debug(&quot;jaxws:wsgen args: &quot; + args);</span>
+
+<span class="nc" id="L248">        return args;</span>
+    }
+
+    private String getRelativePath(File root, File f) {
+<span class="nc" id="L252">        return root.toURI().relativize(f.toURI()).getPath();</span>
+    }
+
+    private Set&lt;String&gt; getSEIs(File directory) throws MojoExecutionException {
+<span class="nc" id="L256">        Set&lt;String&gt; seis = new HashSet&lt;String&gt;();</span>
+<span class="nc bnc" id="L257" title="All 4 branches missed.">        if (!directory.exists() || directory.isFile()) {</span>
+<span class="nc" id="L258">            return seis;</span>
+        }
+<span class="nc" id="L260">        ClassLoader cl = null;</span>
+        try {
+<span class="nc" id="L262">            cl = new URLClassLoader(new URL[]{directory.toURI().toURL()});</span>
+<span class="nc bnc" id="L263" title="All 2 branches missed.">            for (String s : FileUtils.getFileAndDirectoryNames(directory, &quot;**/*.class&quot;, null, false, true, true, false)) {</span>
+                try {
+<span class="nc" id="L265">                    String clsName = s.replace(File.separator, &quot;.&quot;);</span>
+<span class="nc" id="L266">                    Class&lt;?&gt; c = cl.loadClass(clsName.substring(0, clsName.length() - 6));</span>
+<span class="nc" id="L267">                    WebService ann = c.getAnnotation(WebService.class);</span>
+<span class="nc bnc" id="L268" title="All 4 branches missed.">                    if (!c.isInterface() &amp;&amp; ann != null) {</span>
+                        //more sophisticated checks are done by wsgen itself
+<span class="nc" id="L270">                        seis.add(c.getName());</span>
+                    }
+<span class="nc" id="L272">                } catch (ClassNotFoundException ex) {</span>
+<span class="nc" id="L273">                    throw new MojoExecutionException(ex.getMessage(), ex);</span>
+                }
+            }
+<span class="nc" id="L276">        } catch (IOException ex) {</span>
+<span class="nc" id="L277">            throw new MojoExecutionException(ex.getMessage(), ex);</span>
+<span class="nc" id="L278">        } finally {</span>
+<span class="nc bnc" id="L279" title="All 8 branches missed.">            if (cl != null &amp;&amp; cl instanceof Closeable) {</span>
+                try {
+<span class="nc" id="L281">                    ((Closeable) cl).close();</span>
+<span class="nc" id="L282">                } catch (IOException ex) {</span>
+                    //ignore
+                }
+            }
+<span class="nc" id="L286">        }</span>
+<span class="nc" id="L287">        return seis;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.0.201403182114</span></div></body></html>
