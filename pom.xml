@@ -23,7 +23,7 @@
     <parent>
         <groupId>net.trajano</groupId>
         <artifactId>trajano</artifactId>
-        <version>8</version>
+        <version>9-SNAPSHOT</version>
     </parent>
     <groupId>net.trajano.mojo</groupId>
     <artifactId>jaxws-maven-plugin</artifactId>
@@ -48,7 +48,7 @@
                 <role>Lead</role>
                 <role>Maintainer</role>
             </roles>
-            <organization />
+            <organization>Oracle</organization>
             <organizationUrl>http://www.oracle.com</organizationUrl>
             <timezone>+1</timezone>
         </developer>
@@ -72,7 +72,7 @@
             <id>gnt</id>
             <name>Guillaume Nodet</name>
             <email>gnodet@apache.org</email>
-            <organization />
+            <organization>LogicBlaze, Inc</organization>
             <organizationUrl>http://www.logicblaze.com</organizationUrl>
             <roles>
                 <role>Previous maintainer</role>
@@ -213,11 +213,6 @@
                 </configuration>
             </plugin>
             <plugin>
-                <groupId>net.trajano.mojo</groupId>
-                <artifactId>cleanpom-maven-plugin</artifactId>
-                <version>1.0.1</version>
-            </plugin>
-            <plugin>
                 <groupId>org.glassfish.copyright</groupId>
                 <artifactId>glassfish-copyright-maven-plugin</artifactId>
                 <version>1.39</version>
@@ -316,8 +311,8 @@
                                 </goals>
                                 <configuration>
                                     <target>
-                                        <copy file="${project.build.directory}/${project.build.finalName}.jar" toFile="${project.build.directory}/${project.build.finalName}.jar.bkp" verbose="true" />
-                                        <copy file="${project.build.directory}/emma/${project.build.finalName}.jar" toDir="${project.build.directory}" overwrite="true" verbose="true" />
+                                        <copy file="${project.build.directory}/${project.build.finalName}.jar" toFile="${project.build.directory}/${project.build.finalName}.jar.bkp" verbose="true"/>
+                                        <copy file="${project.build.directory}/emma/${project.build.finalName}.jar" toDir="${project.build.directory}" overwrite="true" verbose="true"/>
                                     </target>
                                 </configuration>
                             </execution>
@@ -329,8 +324,8 @@
                                 </goals>
                                 <configuration>
                                     <target>
-                                        <copy file="${project.build.directory}/${project.build.finalName}.jar.bkp" toFile="${project.build.directory}/${project.build.finalName}.jar" overwrite="true" verbose="true" />
-                                        <delete file="${project.build.directory}/${project.build.finalName}.jar.bkp" verbose="true" />
+                                        <copy file="${project.build.directory}/${project.build.finalName}.jar.bkp" toFile="${project.build.directory}/${project.build.finalName}.jar" overwrite="true" verbose="true"/>
+                                        <delete file="${project.build.directory}/${project.build.finalName}.jar.bkp" verbose="true"/>
                                     </target>
                                 </configuration>
                             </execution>
