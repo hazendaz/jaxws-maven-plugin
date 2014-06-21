@@ -112,7 +112,7 @@ import org.codehaus.plexus.util.xml.Xpp3Dom;
 <span class="nc" id="L112">                attachWsdl();</span>
 <span class="nc" id="L113">            } catch (IOException ex) {</span>
 <span class="nc" id="L114">                throw new MojoExecutionException(&quot;Failed to execute wsgen&quot;, ex);</span>
-<span class="nc" id="L115">            }</span>
+            }
         }
 
 <span class="nc" id="L118">    }</span>
@@ -122,7 +122,7 @@ import org.codehaus.plexus.util.xml.Xpp3Dom;
 <span class="nc bnc" id="L122" title="All 2 branches missed.">        if (!&quot;war&quot;.equalsIgnoreCase(project.getPackaging())) {</span>
             // META-INF/wsdl for jar etc packagings
 <span class="nc" id="L124">            target = new File(project.getBuild().getOutputDirectory(), &quot;META-INF/wsdl&quot;);</span>
-        } else {
+<span class="nc" id="L125">        } else {</span>
             // WEB-INF/wsdl for war
 <span class="nc" id="L127">            String targetPath = null;</span>
 <span class="nc" id="L128">            Plugin war = project.getBuild().getPluginsAsMap().get(&quot;org.apache.maven.plugins:maven-war-plugin&quot;);</span>
@@ -133,7 +133,7 @@ import org.codehaus.plexus.util.xml.Xpp3Dom;
 <span class="nc" id="L133">                    targetPath = s;</span>
 <span class="nc" id="L134">                    break;</span>
                 }
-<span class="nc" id="L136">            }</span>
+            }
 <span class="nc bnc" id="L137" title="All 2 branches missed.">            if (targetPath == null) {</span>
                 //check global plugin configuration
 <span class="nc" id="L139">                targetPath = getWebappDirectory(war.getConfiguration());</span>
@@ -157,4 +157,4 @@ import org.codehaus.plexus.util.xml.Xpp3Dom;
     }
 
 }
-</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.0.201403182114</span></div></body></html>
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.1.201405082137</span></div></body></html>
