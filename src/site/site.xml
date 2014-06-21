@@ -24,7 +24,6 @@
   <skin>
     <groupId>net.trajano.maven.skins</groupId>
     <artifactId>twentyfourteen-maven-skin</artifactId>
-    <version>1.0.0-SNAPSHOT</version>
   </skin>
 
   <body>
