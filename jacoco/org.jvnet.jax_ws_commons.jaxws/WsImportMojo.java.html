@@ -289,7 +289,7 @@ import org.apache.maven.settings.Settings;
 <span class="nc" id="L289">            throw e;</span>
 <span class="nc" id="L290">        } catch (IOException e) {</span>
 <span class="nc" id="L291">            throw new MojoExecutionException(e.getMessage(), e);</span>
-        }
+<span class="nc" id="L292">        }</span>
 <span class="nc" id="L293">    }</span>
 
     @Override
@@ -364,7 +364,7 @@ import org.apache.maven.settings.Settings;
 <span class="nc bnc" id="L364" title="All 2 branches missed.">        if ( httpproxy != null )</span>
         {
 <span class="nc" id="L366">            args.add( &quot;-httpproxy:&quot; + httpproxy);</span>
-<span class="nc" id="L367">        }</span>
+        }
 <span class="nc bnc" id="L368" title="All 2 branches missed.">        else if (settings != null)</span>
         {
 <span class="nc" id="L370">            String proxyString = getActiveHttpProxy(settings);</span>
@@ -406,8 +406,8 @@ import org.apache.maven.settings.Settings;
 <span class="nc" id="L406">            args.add(&quot;-quiet&quot;);</span>
         }
 
-<span class="nc bnc" id="L409" title="All 6 branches missed.">        if ((genJWS || implServiceName != null || implPortName != null)</span>
-<span class="nc bnc" id="L410" title="All 2 branches missed.">                &amp;&amp; isArgSupported(&quot;-generateJWS&quot;)) {</span>
+<span class="nc bnc" id="L409" title="All 8 branches missed.">        if ((genJWS || implServiceName != null || implPortName != null)</span>
+                &amp;&amp; isArgSupported(&quot;-generateJWS&quot;)) {
 <span class="nc" id="L411">            args.add(&quot;-generateJWS&quot;);</span>
 <span class="nc bnc" id="L412" title="All 4 branches missed.">            if (implServiceName != null &amp;&amp; isArgSupported(&quot;-implServiceName&quot;)) {</span>
 <span class="nc" id="L413">                args.add(&quot;-implServiceName&quot;);</span>
@@ -466,7 +466,7 @@ import org.apache.maven.settings.Settings;
 <span class="nc" id="L466">                    args.add(&quot;-B&quot; + xjcArg);</span>
                 else
 <span class="nc" id="L468">                    args.add(xjcArg);</span>
-            }
+<span class="nc" id="L469">            }</span>
         }
 
         // Bindings
@@ -474,7 +474,7 @@ import org.apache.maven.settings.Settings;
 
 <span class="nc bnc" id="L475" title="All 6 branches missed.">        if (bindings.length &gt; 0 &amp;&amp; wsdlLocation != null &amp;&amp; wsdlLocation.contains(&quot;*&quot;)) {</span>
 <span class="nc" id="L476">            throw new MojoExecutionException(&quot;External binding file(s) can not be bound to more WSDL files (&quot; + wsdlLocation + &quot;)\n&quot;</span>
-<span class="nc" id="L477">                    + &quot;Please use either inline binding(s) or multiple execution tags.&quot;);</span>
+                    + &quot;Please use either inline binding(s) or multiple execution tags.&quot;);
         }
 
 <span class="nc bnc" id="L480" title="All 2 branches missed.">        for (File binding : bindings) {</span>
@@ -508,7 +508,7 @@ import org.apache.maven.settings.Settings;
                 }
 <span class="nc" id="L509">                bindings[i] = file;</span>
             }
-<span class="nc" id="L511">        }</span>
+        }
         else
         {
 <span class="nc" id="L514">            getLog().debug( &quot;The binding Directory is &quot; + bindingDirectory );</span>
@@ -541,12 +541,12 @@ import org.apache.maven.settings.Settings;
                 }
 <span class="nc" id="L542">            } catch (MalformedURLException ex) {</span>
 <span class="nc" id="L543">                Logger.getLogger(WsImportMojo.class.getName()).log(Level.SEVERE, null, ex);</span>
-            }
-        }
+<span class="nc" id="L544">            }</span>
+<span class="nc" id="L545">        }</span>
         // Suppress this warning because it is actually being closed if the type is URLClassLoader
 <span class="nc bnc" id="L547" title="All 2 branches missed.">        ClassLoader loader = urlCpath.isEmpty()</span>
-<span class="nc" id="L548">                ? Thread.currentThread().getContextClassLoader()</span>
-<span class="nc" id="L549">                : new URLClassLoader(urlCpath.toArray(new URL[0]));</span>
+                ? Thread.currentThread().getContextClassLoader()
+                : new URLClassLoader(urlCpath.toArray(new URL[0]));
 <span class="nc bnc" id="L550" title="All 2 branches missed.">        if (wsdlFiles != null) {</span>
 <span class="nc bnc" id="L551" title="All 2 branches missed.">            for (String wsdlFileName : wsdlFiles) {</span>
 <span class="nc" id="L552">                File wsdl = new File(wsdlFileName);</span>
@@ -556,21 +556,21 @@ import org.apache.maven.settings.Settings;
                 }
 <span class="nc bnc" id="L557" title="All 2 branches missed.">                if (!wsdl.exists()) {</span>
 <span class="nc" id="L558">                    toAdd = loader.getResource(wsdlFileName);</span>
-<span class="nc" id="L559">                } else {</span>
+                } else {
                     try {
 <span class="nc" id="L561">                        toAdd = wsdl.toURI().toURL();</span>
 <span class="nc" id="L562">                    } catch (MalformedURLException ex) {</span>
 <span class="nc" id="L563">                        Logger.getLogger(WsImportMojo.class.getName()).log(Level.SEVERE, null, ex);</span>
-                    }
+<span class="nc" id="L564">                    }</span>
                 }
 <span class="nc" id="L566">                getLog().debug(&quot;The wsdl File is '&quot; + wsdlFileName + &quot;' from '&quot; + toAdd + &quot;'&quot;);</span>
 <span class="nc bnc" id="L567" title="All 2 branches missed.">                if (toAdd != null) {</span>
 <span class="nc" id="L568">                    files.add(toAdd);</span>
-<span class="nc" id="L569">                } else {</span>
+                } else {
 <span class="nc" id="L570">                    throw new MojoExecutionException(&quot;'&quot; + wsdlFileName + &quot;' not found.&quot;);</span>
                 }
-            }
-<span class="nc" id="L573">        } else {</span>
+<span class="nc" id="L572">            }</span>
+        } else {
 <span class="nc" id="L574">            getLog().debug( &quot;The wsdl Directory is &quot; + wsdlDirectory );</span>
 <span class="nc bnc" id="L575" title="All 2 branches missed.">            if (wsdlDirectory.exists()) {</span>
 <span class="nc" id="L576">                File[] wsdls = wsdlDirectory.listFiles(new WSDLFile());</span>
@@ -579,7 +579,7 @@ import org.apache.maven.settings.Settings;
 <span class="nc" id="L579">                        files.add(wsdl.toURI().toURL());</span>
 <span class="nc" id="L580">                    } catch (MalformedURLException ex) {</span>
 <span class="nc" id="L581">                        Logger.getLogger(WsImportMojo.class.getName()).log(Level.SEVERE, null, ex);</span>
-                    }
+<span class="nc" id="L582">                    }</span>
                 }
 <span class="nc" id="L584">            } else {</span>
 <span class="nc" id="L585">                URI rel = project.getBasedir().toURI().relativize(wsdlDirectory.toURI());</span>
@@ -606,11 +606,11 @@ import org.apache.maven.settings.Settings;
 <span class="nc" id="L606">                                String s = &quot;jar:&quot; + path.substring(0, path.indexOf(&quot;!/&quot;) + 2) + je.getName();</span>
 <span class="nc" id="L607">                                files.add(new URL(s));</span>
                             }
-                        }
+<span class="nc" id="L609">                        }</span>
 <span class="nc" id="L610">                        jarFile.close();</span>
 <span class="nc" id="L611">                    } catch (IOException ex) {</span>
 <span class="nc" id="L612">                        Logger.getLogger(WsImportMojo.class.getName()).log(Level.SEVERE, null, ex);</span>
-                    }
+<span class="nc" id="L613">                    }</span>
                 }
             }
         }
@@ -619,7 +619,7 @@ import org.apache.maven.settings.Settings;
 <span class="nc" id="L619">                ((Closeable) loader).close();</span>
 <span class="nc" id="L620">            } catch (IOException e) {</span>
 <span class="nc" id="L621">                throw new MojoExecutionException(e.getMessage(), e);</span>
-            }
+<span class="nc" id="L622">            }</span>
         }
 <span class="nc" id="L624">        return files.toArray(new URL[0]);</span>
     }
@@ -664,7 +664,7 @@ import org.apache.maven.settings.Settings;
 <span class="nc bnc" id="L664" title="All 4 branches missed.">                if (path.endsWith(s) &amp;&amp; path.length() != s.length()) {</span>
 <span class="nc" id="L665">                    return s;</span>
                 }
-            }
+<span class="nc" id="L667">            }</span>
         }
 <span class="nc" id="L669">        return null;</span>
     }
@@ -700,7 +700,7 @@ import org.apache.maven.settings.Settings;
 <span class="nc" id="L700">            } catch (IOException ioe) {</span>
                 //possible error while openning connection
 <span class="nc" id="L702">                getLog().error(ioe);</span>
-            }
+<span class="nc" id="L703">            }</span>
 
 <span class="nc bnc" id="L705" title="All 2 branches missed.">            for (File sourceBinding : sourceBindings) {</span>
 <span class="nc bnc" id="L706" title="All 2 branches missed.">                if (sourceBinding.lastModified() &gt; staleMod) {</span>
@@ -742,7 +742,7 @@ import org.apache.maven.settings.Settings;
 <span class="nc" id="L742">            getLog().debug(ex.getMessage(), ex);</span>
 <span class="nc" id="L743">        } catch (NoSuchAlgorithmException ex) {</span>
 <span class="nc" id="L744">            getLog().debug(ex.getMessage(), ex);</span>
-<span class="nc" id="L745">        } finally {</span>
+        } finally {
 <span class="nc" id="L746">            formatter.close();</span>
 <span class="nc" id="L747">        }</span>
         //fallback to some default
@@ -755,28 +755,28 @@ import org.apache.maven.settings.Settings;
      * @return proxy string as [user[:password]@]proxyHost[:proxyPort] or null
      */
     static String getActiveHttpProxy(Settings s) {
-<span class="nc" id="L758">        String retVal = null;</span>
-<span class="nc bnc" id="L759" title="All 2 branches missed.">        for (Proxy p : s.getProxies()) {</span>
-<span class="nc bnc" id="L760" title="All 4 branches missed.">            if (p.isActive() &amp;&amp; &quot;http&quot;.equals(p.getProtocol())) {</span>
-<span class="nc" id="L761">                StringBuilder sb = new StringBuilder();</span>
-<span class="nc" id="L762">                String user = p.getUsername();</span>
-<span class="nc" id="L763">                String pwd = p.getPassword();</span>
-<span class="nc bnc" id="L764" title="All 2 branches missed.">                if (user != null) {</span>
-<span class="nc" id="L765">                    sb.append(user);</span>
-<span class="nc bnc" id="L766" title="All 2 branches missed.">                    if (pwd != null) {</span>
-<span class="nc" id="L767">                        sb.append(&quot;:&quot;);</span>
-<span class="nc" id="L768">                        sb.append(pwd);</span>
+<span class="fc" id="L758">        String retVal = null;</span>
+<span class="fc bfc" id="L759" title="All 2 branches covered.">        for (Proxy p : s.getProxies()) {</span>
+<span class="fc bfc" id="L760" title="All 4 branches covered.">            if (p.isActive() &amp;&amp; &quot;http&quot;.equals(p.getProtocol())) {</span>
+<span class="fc" id="L761">                StringBuilder sb = new StringBuilder();</span>
+<span class="fc" id="L762">                String user = p.getUsername();</span>
+<span class="fc" id="L763">                String pwd = p.getPassword();</span>
+<span class="fc bfc" id="L764" title="All 2 branches covered.">                if (user != null) {</span>
+<span class="fc" id="L765">                    sb.append(user);</span>
+<span class="fc bfc" id="L766" title="All 2 branches covered.">                    if (pwd != null) {</span>
+<span class="fc" id="L767">                        sb.append(&quot;:&quot;);</span>
+<span class="fc" id="L768">                        sb.append(pwd);</span>
                     }
-<span class="nc" id="L770">                    sb.append(&quot;@&quot;);</span>
+<span class="fc" id="L770">                    sb.append(&quot;@&quot;);</span>
                 }
-<span class="nc" id="L772">                sb.append(p.getHost());</span>
-<span class="nc" id="L773">                sb.append(&quot;:&quot;);</span>
-<span class="nc" id="L774">                sb.append(p.getPort());</span>
-<span class="nc" id="L775">                retVal = sb.toString().trim();</span>
-<span class="nc" id="L776">                break;</span>
+<span class="fc" id="L772">                sb.append(p.getHost());</span>
+<span class="fc" id="L773">                sb.append(&quot;:&quot;);</span>
+<span class="fc" id="L774">                sb.append(p.getPort());</span>
+<span class="fc" id="L775">                retVal = sb.toString().trim();</span>
+<span class="fc" id="L776">                break;</span>
             }
-        }
-<span class="nc" id="L779">        return retVal;</span>
+<span class="fc" id="L778">        }</span>
+<span class="fc" id="L779">        return retVal;</span>
     }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.1.201405082137</span></div></body></html>

@@ -103,7 +103,7 @@ import org.apache.maven.plugins.annotations.ResolutionScope;
 <span class="nc bnc" id="L103" title="All 2 branches missed.">        if (!project.getTestCompileSourceRoots().contains(sourceDir)) {</span>
 <span class="nc" id="L104">            getLog().debug(&quot;adding test src root: &quot; + sourceDir);</span>
 <span class="nc" id="L105">            project.addTestCompileSourceRoot(sourceDir);</span>
-<span class="nc" id="L106">        } else {</span>
+        } else {
 <span class="nc" id="L107">            getLog().debug(&quot;existing test src root: &quot; + sourceDir);</span>
         }
 <span class="nc" id="L109">    }</span>
@@ -124,7 +124,7 @@ import org.apache.maven.plugins.annotations.ResolutionScope;
         //no need to generate sources/classes
 <span class="nc bnc" id="L125" title="All 2 branches missed.">        if (skip) {</span>
 <span class="nc" id="L126">            getLog().info(&quot;Skipping tests, nothing to do.&quot;);</span>
-<span class="nc" id="L127">        } else {</span>
+        } else {
 <span class="nc" id="L128">            super.execute();</span>
         }
 <span class="nc" id="L130">    }</span>
