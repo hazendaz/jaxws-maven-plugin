@@ -31,7 +31,7 @@
     <packaging>maven-plugin</packaging>
     <name>Maven JAXWS 2.x Plugin</name>
     <description>Maven plugin for JAX-WS RI.  Fork of http://jax-ws-commons.java.net/jaxws-maven-plugin/</description>
-    <url>http://jax-ws-commons.java.net/jaxws-maven-plugin/</url>
+    <url>http://site.trajano.net/jaxws-maven-plugin/</url>
     <licenses>
         <license>
             <name>The Apache Software License, Version 2.0</name>
