@@ -67,7 +67,7 @@
                     </configuration>
                 </plugin>
                 <plugin>
-                    <groupId>org.jvnet.jax-ws-commons</groupId>
+                    <groupId>net.trajano.mojo</groupId>
                     <artifactId>jaxws-maven-plugin</artifactId>
                     <version>${jaxws.plugin.version}</version>
                 </plugin>
