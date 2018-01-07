@@ -31,7 +31,7 @@
     <version>2.3.9-SNAPSHOT</version>
     <packaging>maven-plugin</packaging>
     <name>Maven JAXWS 2.x Plugin</name>
-    <description>Maven plugin for JAX-WS RI.  Fork of http://jax-ws-commons.java.net/jaxws-maven-plugin/</description>
+    <description>Maven plugin for JAX-WS RI - Fork of https://github.com/javaee/metro-jaxws-commons/tree/master/jaxws-maven-plugin</description>
     <url>http://site.trajano.net/jaxws-maven-plugin/</url>
     <licenses>
         <license>
