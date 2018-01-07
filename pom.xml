@@ -90,14 +90,6 @@
             </roles>
         </developer>
         <developer>
-            <id>kohsuke</id>
-            <name>Kohsuke Kawaguchi</name>
-            <email>kohsuke.kawaguchi@sun.com</email>
-            <roles>
-                <role>Maintainer</role>
-            </roles>
-        </developer>
-        <developer>
             <id>atrajano</id>
             <name>Archimedes Trajano</name>
             <email>developer@trajano.net</email>
